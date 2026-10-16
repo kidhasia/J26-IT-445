@@ -26,6 +26,20 @@ brew install tesseract
 .venv/bin/python -m pytest -v
 ```
 
+## Inspect a dataset (read-only)
+
+Counts, label distribution, missing values, corrupt and duplicate files and image sizes. It never changes the data and never prints file names, ids or row values.
+
+```bash
+.venv/bin/python -m lumi.data_inspect --name myset --images "PATH/TO/IMAGES" --metadata "PATH/TO/METADATA.csv" \
+    --label-column LABEL_COLUMN --id-column ID_COLUMN --group-column PATIENT_OR_LESION_COLUMN
+# or use a preset for a known dataset: --preset ham10000   (or nih_cxr14)
+```
+
+Results go to `data/processed/inspection/<name>_summary.json` and `<name>_report.md` (ignored by Git).
+Column names are always checked against the real file header; mismatches are reported with suggestions.
+Add `--list-problem-files` to also save the paths of corrupt/duplicate files locally.
+
 ## Run the server
 
 ```bash
