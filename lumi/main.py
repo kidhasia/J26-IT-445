@@ -155,6 +155,8 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
             # Read at most one byte over the limit, enough to know the file is too large.
             data = await file.read(settings.max_upload_bytes + 1)
             validated = validate_upload(input_type, data, file.content_type, file.filename, settings)
+            # Pipelines may also raise LumiError (e.g. OCR engine unavailable -> 503).
+            response = service.analyze(request_id, input_type, validated, clean_question, parsed_metadata)
         except LumiError as exc:
             log_analyze(
                 request_id=request_id,
@@ -165,9 +167,10 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
                 error_code=exc.code,
             )
             error = ErrorDetail(code=exc.code, message=exc.message, field=exc.field)
-            return _error_response(exc.status_code, error, request_id=request_id, input_type=input_type)
+            return _error_response(
+                exc.status_code, error, request_id=request_id, input_type=input_type, headers=exc.headers
+            )
 
-        response = service.analyze(request_id, input_type, validated, clean_question, parsed_metadata)
         log_analyze(
             request_id=request_id,
             client_id=client_id,

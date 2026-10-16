@@ -23,6 +23,7 @@ class ErrorCode(str, Enum):
     UNREADABLE_FILE = "unreadable_file"
     UNAUTHORIZED = "unauthorized"
     RATE_LIMITED = "rate_limited"
+    OCR_UNAVAILABLE = "ocr_unavailable"
     INTERNAL_ERROR = "internal_error"
 
 

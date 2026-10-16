@@ -3,7 +3,7 @@
 Research prototype for **decision support only**. It does not diagnose and does not replace licensed clinicians.
 
 Current state: API skeleton with validation, API-key auth, rate limiting and privacy-safe logging.
-All pipelines are **mocks that make no predictions**. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+Skin and chest X-ray pipelines are **mocks that make no predictions**. Lab reports (PNG/JPEG) go through local Tesseract OCR and field parsing; PDFs are not analysed yet. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
 
 ## Setup (once)
 
@@ -11,6 +11,13 @@ All pipelines are **mocks that make no predictions**. Scope and open questions: 
 cd "/Users/kidhasia/Desktop/Research Stuff"
 /opt/homebrew/bin/python3.12 -m venv .venv          # skip if .venv already exists
 .venv/bin/pip install -r requirements-dev.txt
+```
+
+## OCR prerequisite
+
+```bash
+brew install tesseract
+.venv/bin/python scripts/make_synthetic_lab_reports.py   # sample synthetic reports in data/synthetic/lab_reports/
 ```
 
 ## Run tests
@@ -53,6 +60,7 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 | 422 | `missing_field`, `invalid_input_type`, `invalid_field`, `invalid_metadata` | Bad form fields |
 | 429 | `rate_limited` | Over 60 requests/minute per client (`Retry-After` header given) |
 | 500 | `internal_error` | Unexpected failure (no internal details returned) |
+| 503 | `ocr_unavailable` | Tesseract missing or timed out |
 
 Every response, including errors, uses the same JSON envelope and carries `request_id` and `clinical_boundary_notice`.
 

@@ -5,6 +5,8 @@ from collections.abc import Mapping
 from lumi.config import CLINICAL_BOUNDARY_NOTICE
 from lumi.pipelines.base import Pipeline
 from lumi.pipelines.mock import MockPipeline
+from lumi.pipelines.ocr.engine import TesseractEngine
+from lumi.pipelines.ocr.pipeline import LabReportOcrPipeline
 from lumi.schemas import AnalyzeResponse, InputType, RequestMetadata
 from lumi.validation import ValidatedFile
 
@@ -43,4 +45,10 @@ class AnalysisService:
 
 
 def build_default_service() -> AnalysisService:
-    return AnalysisService({input_type: MockPipeline(input_type) for input_type in InputType})
+    return AnalysisService(
+        {
+            InputType.SKIN_IMAGE: MockPipeline(InputType.SKIN_IMAGE),
+            InputType.CHEST_XRAY: MockPipeline(InputType.CHEST_XRAY),
+            InputType.LAB_REPORT: LabReportOcrPipeline(TesseractEngine()),
+        }
+    )
