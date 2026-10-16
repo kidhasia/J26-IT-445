@@ -4,9 +4,10 @@ import json
 import time
 import uuid
 
-from fastapi import Depends, FastAPI, File, Form, Header, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import ValidationError
 
 from lumi import __version__
@@ -130,8 +131,13 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         error = ErrorDetail(code=ErrorCode.INTERNAL_ERROR, message="An internal error occurred.")
         return _error_response(500, error)
 
-    def require_client(authorization: str | None = Header(None)) -> str:
-        client_id = authenticator.authenticate(authorization)
+    # HTTPBearer documents the scheme in OpenAPI, which adds the "Authorize" button to /docs.
+    # auto_error=False lets our authenticator produce the standard LUMI 401 envelope.
+    bearer = HTTPBearer(auto_error=False, description="LUMI API key")
+
+    def require_client(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> str:
+        header = f"{credentials.scheme} {credentials.credentials}" if credentials else None
+        client_id = authenticator.authenticate(header)
         rate_limiter.check(client_id)
         return client_id
 
