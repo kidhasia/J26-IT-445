@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Never commit datasets, model weights or patient-derived files
+data/raw/
+data/processed/
+models/
+*.dcm
+
+# Signed proposal/TAF documents stay local (they contain signatures and personal details)
+/*.pdf

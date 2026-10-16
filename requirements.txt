@@ -1,0 +1,8 @@
+# Runtime dependencies for the LUMI API (pinned to the versions tested on 2026-10-16)
+fastapi==0.143.2
+starlette==1.8.0
+uvicorn==0.54.0
+python-multipart==0.0.32
+pydantic==2.14.1
+pillow==12.3.0
+pypdf==6.21.0
