@@ -8,7 +8,7 @@ Run `./scripts/demo_preflight.sh` first. It only reads things and must end with 
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: all tests pass (435 on 2026-10-18)
+.venv/bin/python -m pytest -q          # expect: all tests pass (485 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
@@ -57,7 +57,7 @@ Optional proof that the interface works in a real browser (about 1 minute; needs
 ```bash
 .venv/bin/python scripts/ui_smoke_test.py --skin-image data/raw/PAD-UFES-20/images/imgs_part_1/PAT_100_393_595.png --lab-image data/synthetic/lab_reports/syn_0001_complete.png
 ```
-Expect `94 of 94 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
+Expect `97 of 97 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
 
 Optional proof of the lab-report reading accuracy (about 10 seconds; needs Tesseract; synthetic reports only):
 ```bash

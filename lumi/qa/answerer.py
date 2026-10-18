@@ -32,28 +32,46 @@ REFUSAL_WORDS = frozenset(
     "treatment therapy medicine medication drug drugs dose dosage surgery prognosis cure worry worried serious dangerous "
     "danger urgent emergency healthy unhealthy normal abnormal safe unsafe advice advise recommend recommended "
     "recommendation should symptom symptoms cause causes high higher low lower elevated raised concern concerned concerning "
-    "harmful risk risky likely unlikely good bad worse better improve improved".split()
+    "harmful risk risky likely unlikely good bad worse better improve improved safest worst best worrying alarming severe severity "
+    "stage mild significant significance mean means meaning interpret interpretation indicate indicates suggest suggests imply implies "
+    "problem problems wrong fine okay why within inside outside beyond exceed exceeds above below".split()
 )
 REFUSAL_PHRASES = (
     "does the child have", "does he have", "does she have", "do they have", "do i have", "have i got", "could it be",
-    "might it be", "is it melanoma", "see a doctor", "what does this mean",
+    "might it be", "is it melanoma", "see a doctor", "what does this mean", "within range", "within the range", "in range",
+    "in the range", "out of range", "outside the range", "outside range", "inside the range", "off the chart", "too much",
 )
 
-SCORE_WORDS = ("score", "scores", "confidence", "confident", "probability", "probabilities", "percent", "percentage", "chance")
-ALL_SCORES_PHRASES = ("all scores", "all classes", "every class", "each class", "class scores", "scores for all", "other classes", "all six", "all the scores", "list the scores")
+# A few harmless phrases contain a refusal word ("which results SHOULD I double check"). They are removed before the
+# refusal check, so the question is judged on whatever is left. Anything else with a refusal word is still refused.
+SAFE_PHRASES = ("should i double check", "should i check", "should be checked", "should be reviewed", "should i review", "should i verify")
+
+SCORE_WORDS = ("score", "scores", "confidence", "confident", "probability", "probabilities", "percent", "percentage", "chance",
+               "how sure", "how certain")
+ALL_SCORES_PHRASES = (
+    "all scores", "all classes", "every class", "each class", "class scores", "scores for all", "other classes", "all six",
+    "all the scores", "list the scores", "every score", "all probabilities", "all the probabilities", "score breakdown",
+    "scores of all", "per class", "class by class", "each lesion class", "all class scores", "all the class scores",
+)
 CLASS_PHRASES = (
     "predicted class", "predicted skin class", "prediction", "predicted", "predict", "which class", "what class", "top class",
-    "highest scoring class", "skin class", "what was the class",
+    "highest scoring class", "skin class", "what was the class", "what category", "which category", "classified as",
+    "scored highest", "scored the highest", "highest scoring", "top scoring",
+    # "lesion type" alone could mean "what is this lesion?", so these only match when the question is about the model's output
+    "type did the model", "class did the model", "category did the model", "condition did the model", "lesion type was predicted",
+    "lesion type predicted", "model pick", "model picked", "model chose", "model choose", "model select", "models choice",
 )
 MAP_PHRASES = ("attention map", "heatmap", "heat map", "grad cam", "gradcam", "saliency", "where did the model look", "highlighted")
-MODEL_PHRASES = ("which model", "what model", "model used", "trained on", "training data", "dataset", "how was it trained", "model name", "held out", "macro f1", "test score")
-LIMIT_PHRASES = ("limitation", "limitations", "caveat", "caveats", "can i trust", "how reliable", "reliable", "reliability", "validated", "validation", "known issues", "restrictions")
+MODEL_PHRASES = ("which model", "what model", "which network", "what network", "architecture", "which algorithm", "model type", "model used", "trained on", "training data", "dataset", "how was it trained", "model name", "held out", "macro f1", "test score")
+LIMIT_PHRASES = ("limitation", "limitations", "limits of", "what are the limits", "known limits", "caveat", "caveats", "any caveats", "can i trust", "how reliable", "reliable", "reliability", "validated", "validation", "known issues", "restrictions")
 WARNING_PHRASES = ("warning", "warnings")
 
-MISSING_PHRASES = ("not found", "missing", "blank", "empty", "unreadable", "not read", "could not be read", "absent", "not detected", "not recognised", "not recognized")
-REVIEW_PHRASES = ("needs review", "need review", "needs checking", "need checking", "flagged", "to check", "check against", "double check", "verify", "low confidence", "uncertain", "review")
+MISSING_PHRASES = ("not found", "missing", "blank", "empty", "unreadable", "not read", "could not be read", "absent", "not detected", "not recognised", "not recognized",
+                  "could not be found", "couldn t be found", "wasn t found", "weren t found", "were not found", "was not found",
+                  "not extracted", "not located", "left blank", "not reported", "not printed", "no value", "without a value", "unreadable", "illegible")
+REVIEW_PHRASES = ("needs review", "need review", "needs checking", "need checking", "flagged", "to check", "check against", "double check", "verify", "low confidence", "uncertain", "review", "to be checked", "to be reviewed", "need to check", "needs to be checked", "unsure", "need attention")
 LIST_PHRASES = ("list", "all results", "all tests", "which tests", "what tests", "tests found", "results found", "all values", "every result", "what was found", "how many", "number of rows", "number of results")
-CONFIDENCE_PHRASES = ("text confidence", "ocr confidence", "how confident", "confidence", "how accurate")
+CONFIDENCE_PHRASES = ("text confidence", "ocr confidence", "how confident", "confidence", "how accurate", "how sure", "how certain")
 
 
 @dataclass
@@ -85,7 +103,17 @@ def has_any(text: str, phrases: tuple[str, ...]) -> bool:
 
 
 def is_out_of_scope(text: str) -> bool:
+    for phrase in SAFE_PHRASES:
+        text = text.replace(f" {phrase} ", " ")
     return bool(set(text.split()) & REFUSAL_WORDS) or has_any(text, REFUSAL_PHRASES)
+
+
+# Common short forms of a test name. Used only when the report really has a row with the long name.
+ABBREVIATIONS = {"hb": "haemoglobin", "hgb": "haemoglobin", "hct": "haematocrit", "plt": "platelets", "wbc": "white blood cells", "rbc": "red blood cells"}
+
+
+def expand_abbreviations(text: str) -> str:
+    return " " + " ".join(ABBREVIATIONS.get(word, word) for word in text.split()) + " "
 
 
 def canonical(words_text: str) -> str:
@@ -199,7 +227,7 @@ def warnings_part(intent: str, ev: Evidence) -> Part:
 
 def row_matches(row: LabField, text: str) -> bool:
     name = " ".join(re.findall(r"[a-z0-9]+", row.test_name.lower()))
-    return bool(name) and f" {canonical(name)} " in canonical(text)
+    return bool(name) and f" {canonical(name)} " in canonical(expand_abbreviations(text))
 
 
 def review_reason(row: LabField) -> str:
@@ -283,9 +311,21 @@ def lab_parts(text: str, ev: LabEvidence) -> list[Part]:
 # ---------------------------------------------------------------- entry point
 
 
+def without_test_names(text: str, evidence: Evidence) -> str:
+    """A lab test's own name may contain a refusal word ("MEAN cell volume"). For the refusal check only, the report's test
+    names are taken out of the question; every other word is still checked."""
+    if isinstance(evidence, SkinEvidence):
+        return text
+    for row in evidence.result.fields:
+        name = " ".join(re.findall(r"[a-z0-9]+", row.test_name.lower()))
+        if name:
+            text = text.replace(f" {name} ", " testname ")
+    return text
+
+
 def answer_question(question: str, evidence: Evidence) -> Answer:
     text = normalise(question)
-    if is_out_of_scope(text):
+    if is_out_of_scope(without_test_names(text, evidence)):
         return Answer(False, CANNOT_ANSWER, [], [], OUT_OF_SCOPE_NOTE)
     parts = skin_parts(text, evidence) if isinstance(evidence, SkinEvidence) else lab_parts(text, evidence)
     parts = [p for p in parts if p.text][:MAX_TOPICS]

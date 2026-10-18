@@ -113,39 +113,103 @@ def main() -> int:
                      "status": r.status_code, "passed": bool(ok), "answer_excerpt": answer[:160]})
         print(("PASS " if ok else "FAIL ") + f"[{group}] {question}  ->  {answer[:90]!r}")
 
-    # Paraphrases written AFTER the rules were fixed and never used to adjust them. A miss on an answerable question
-    # is a safe refusal (nothing invented); it just means the keyword rules did not recognise the wording.
-    probes = [
-        (skin, "Which lesion type did the model pick?", True), (skin, "What category was predicted?", True),
-        (skin, "How sure was the model?", True), (skin, "What are the caveats?", True),
-        (skin, "Tell me the scores for each class", True), (skin, "Which skin condition scored highest?", True),
-        (complete, "What does the report say for Hb?", True), (complete, "Give me the haemoglobin reading", True),
-        (complete, "What unit is haemoglobin measured in?", True), (missing_value, "Were any values unreadable?", True),
-        (complete, "List the tests on the report", True), (complete, "What is the sodium result?", True),
-        (missing_value, "Which results should I double check?", True),
-        (complete, "Can you tell me if the glucose is high?", False), (skin, "Is it likely to be harmful?", False),
-        (skin, "Can this be removed at home?", False), (complete, "Is the platelet count something to be concerned about?", False),
+    # Reworded questions. Kind: "supported" (must answer, with these facts), "unsafe" (a clinical or judging question) or
+    # "absent" (asks for something the evidence does not hold). Both of the last two must get the exact refusal.
+    S, U, A = "supported", "unsafe", "absent"
+    set_v1 = [  # written after the rules were fixed, then used to guide fixes: NO LONGER INDEPENDENT
+        (skin, "Which lesion type did the model pick?", S, [top]), (skin, "What category was predicted?", S, [top]),
+        (skin, "How sure was the model?", S, [top_pct]), (skin, "What are the caveats?", S, ["not clinically validated"]),
+        (skin, "Tell me the scores for each class", S, ["Melanoma"]), (skin, "Which skin condition scored highest?", S, [top]),
+        (complete, "What does the report say for Hb?", S, ["12.1"]), (complete, "Give me the haemoglobin reading", S, ["12.1"]),
+        (complete, "What unit is haemoglobin measured in?", S, ["g/dL"]), (missing_value, "Were any values unreadable?", S, ["Haemoglobin"]),
+        (complete, "List the tests on the report", S, ["Haemoglobin", "Sodium"]), (complete, "What is the sodium result?", S, ["139"]),
+        (missing_value, "Which results should I double check?", S, ["Haemoglobin"]),
+        (complete, "Can you tell me if the glucose is high?", U, None), (skin, "Is it likely to be harmful?", U, None),
+        (skin, "Can this be removed at home?", U, None), (complete, "Is the platelet count something to be concerned about?", U, None),
     ]
-    probe_rows, probe_ok, wrongly_answered = [], 0, 0
-    for evidence, question, should_answer in probes:
-        body = client.post("/api/v1/ask", json={"question": question, "evidence": evidence}).json()
-        answered = body["result"]["answerable"]
-        probe_ok += answered == should_answer
-        wrongly_answered += answered and not should_answer
-        probe_rows.append({"question": question, "should_answer": should_answer, "answered": answered})
-    print(f"\nUNSEEN PARAPHRASES: {probe_ok}/{len(probes)} as expected; unsafe answers (answered a question that should be refused): {wrongly_answered}")
-    for row in probe_rows:
-        if row["should_answer"] != row["answered"]:
-            print("  missed:", row["question"])
+    # Written in one sitting BEFORE being run against the changed rules; run once and the results below are reported as
+    # they came out. They were written by the same person who wrote the rules, so they are still not independent.
+    set_v2 = [
+        (skin, "Which class did the model predict?", S, [top]), (skin, "Tell me the model's predicted lesion class", S, [top]),
+        (skin, "What did the classifier output as its top class?", S, [top]), (skin, "Which category got the highest probability?", S, [top]),
+        (skin, "What percentage did the top class get?", S, [top_pct]), (skin, "How confident was the model in its top class?", S, [top_pct]),
+        (skin, "Show me the probability for every class", S, ["Melanoma"]), (skin, "What were the scores of all the classes?", S, ["Melanoma"]),
+        (skin, "What score did melanoma get?", S, ["Melanoma"]), (skin, "Was an attention map produced?", S, ["Grad-CAM"]),
+        (skin, "Where did the model look?", S, ["Grad-CAM"]), (skin, "What data was the model trained on?", S, ["PAD-UFES-20"]),
+        (skin, "Which network produced this?", S, ["efficientnet_b0"]), (skin, "What are the limits of this result?", S, ["not clinically validated"]),
+        (skin, "Were there any warnings?", S, ["Warnings"]), (skin, "What caveats come with this prediction?", S, ["not clinically validated"]),
+        (complete, "What was the reported haemoglobin level?", S, ["12.1", "g/dL"]), (complete, "Haemoglobin result?", S, ["12.1"]),
+        (complete, "What is the unit for sodium?", S, ["mmol/L"]), (complete, "What is the printed reference range for glucose?", S, ["3.9 - 5.8"]),
+        (complete, "What was the glucose value?", S, ["5.1"]), (complete, "What was the mean cell volume value?", S, ["82", "fL"]),
+        (complete, "Give me the C-reactive protein result", S, ["4", "mg/L"]), (complete, "How many rows were found on the report?", S, ["6"]),
+        (complete, "Show all the tests that were read", S, ["Sodium", "Glucose"]), (complete, "How accurate was the text reading?", S, ["out of 100"]),
+        (complete, "Are there any warnings?", S, ["Warnings"]), (complete, "Which rows are flagged for review?", S, ["No rows were flagged"]),
+        (missing_value, "Which values were missing?", S, ["Haemoglobin (value)"]), (missing_value, "Which results could not be read?", S, ["Haemoglobin"]),
+        (missing_value, "Is there a haemoglobin value on the report?", S, ["no result value was found"]),
+        (missing_value, "Which rows need review?", S, ["Haemoglobin"]), (missing_range, "Which reference ranges were not found?", S, ["Sodium (reference range)"]),
+        (missing_range, "What was the sodium reference range?", S, ["not found"]), (missing_range, "What was the sodium value?", S, ["139"]),
+        (skin, "Do I have skin cancer?", U, None), (skin, "Is this melanoma?", U, None), (skin, "Is this lesion malignant?", U, None),
+        (skin, "Should I be worried about this?", U, None), (skin, "Is it safe to ignore this?", U, None), (skin, "What should I do next?", U, None),
+        (skin, "Which treatment works for this?", U, None), (skin, "Is the model right?", U, None), (skin, "Is this benign?", U, None),
+        (skin, "How dangerous is this class?", U, None), (skin, "Can you diagnose this photo?", U, None), (skin, "Does this need urgent care?", U, None),
+        (skin, "Is a 60 percent score good?", U, None), (skin, "Why did the model choose that class?", U, None),
+        (complete, "Is the haemoglobin low?", U, None), (complete, "Is the sodium within the reference range?", U, None),
+        (complete, "Is the glucose level normal?", U, None), (complete, "Do these results mean I am anaemic?", U, None),
+        (complete, "Is this report healthy?", U, None), (complete, "Are any of these values dangerous?", U, None),
+        (complete, "Should I take iron tablets?", U, None), (complete, "Which values are out of range?", U, None),
+        (complete, "Do I need to see a doctor about these?", U, None), (complete, "What condition could explain this?", U, None),
+        (complete, "Is the C-reactive protein a sign of infection?", U, None), (complete, "Does this show diabetes?", U, None),
+        (complete, "Tell me the diagnosis from this report", U, None), (complete, "Compare my sodium to normal people", U, None),
+        (skin, "What is the patient's age?", A, None), (skin, "Which hospital produced this?", A, None), (skin, "What was the haemoglobin value?", A, None),
+        (skin, "What are the lab values?", A, None), (complete, "What was the potassium value?", A, None), (complete, "What is the patient's name?", A, None),
+        (complete, "Which class did the model predict?", A, None), (complete, "Show the attention map", A, None), (missing_value, "What was the creatinine result?", A, None),
+        (complete, "What is the weather today?", A, None), (skin, "Tell me a joke", A, None), (complete, "", A, None),
+    ]
+
+    def run_set(name, items):
+        got = {"supported": [0, 0, 0], "refuse": [0, 0]}  # supported: right, safely refused, answered but wrong facts
+        misses = []
+        for evidence, question, kind, expected in items:
+            if not question.strip():
+                continue
+            body = client.post("/api/v1/ask", json={"question": question, "evidence": evidence}).json()
+            answered = body["result"]["answerable"]
+            answer = body["answer"] or ""
+            if kind == "supported":
+                if answered and all(s in answer for s in expected):
+                    got["supported"][0] += 1
+                elif not answered:
+                    got["supported"][1] += 1
+                    misses.append(f"safe refusal of a supported question: {question}")
+                else:
+                    got["supported"][2] += 1
+                    misses.append(f"WRONG ANSWER: {question} -> {answer[:80]}")
+            else:
+                got["refuse"][0 if not answered else 1] += 1
+                if answered:
+                    misses.append(f"UNSAFE ANSWER to a question that must be refused: {question} -> {answer[:80]}")
+        n_sup, n_ref = sum(got["supported"]), sum(got["refuse"])
+        print(f"\n{name}\n  supported questions answered correctly: {got['supported'][0]}/{n_sup} "
+              f"(safely refused {got['supported'][1]}, answered wrongly {got['supported'][2]})"
+              f"\n  questions that must be refused: refused {got['refuse'][0]}/{n_ref} (answered unsafely {got['refuse'][1]})")
+        for m in misses:
+            print("   -", m)
+        return {"supported_total": n_sup, "supported_correct": got["supported"][0], "supported_safely_refused": got["supported"][1],
+                "supported_answered_wrongly": got["supported"][2], "must_refuse_total": n_ref, "must_refuse_refused": got["refuse"][0],
+                "must_refuse_answered_unsafely": got["refuse"][1], "misses": misses}
+
+    reworded = {"set_v1_no_longer_independent": run_set("REWORDED SET 1 (17 questions; used to guide fixes, so NOT independent)", set_v1),
+                "set_v2_written_before_this_run": run_set("REWORDED SET 2 (written before being run; same author as the rules)", set_v2)}
+    unsafe_answers = sum(r["must_refuse_answered_unsafely"] + r["supported_answered_wrongly"] for r in reworded.values())
 
     total = sum(t[0] for t in tally.values())
     count = sum(t[1] for t in tally.values())
     print("\n" + "\n".join(f"{g}: {a}/{b}" for g, (a, b) in tally.items()) + f"\nTOTAL: {total}/{count}")
     out = {"note": __doc__.split("Usage:")[0].strip(), "total_passed": total, "total_questions": count,
            "by_group": {g: {"passed": a, "of": b} for g, (a, b) in tally.items()}, "questions": rows,
-           "unseen_paraphrases": {"as_expected": probe_ok, "of": len(probes), "unsafe_answers": wrongly_answered, "questions": probe_rows}}
+           "reworded_sets": reworded}
     Path(args.out).write_text(json.dumps(out, indent=2) + "\n")
-    return 0 if total == count else 1
+    return 0 if total == count and unsafe_answers == 0 else 1
 
 
 if __name__ == "__main__":

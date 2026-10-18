@@ -28,8 +28,8 @@
 6. Skin model limits: melanoma 11 images, SCC weak, children 6 test photos, one in three wrong.
 7. Grad-CAM: the picture, the sanity checks, and "not a diagnosis".
 8. Lab-report reading: demo result, CER 1.26% / WER 11.67%, "three synthetic reports only".
-9. Evidence-grounded questions: examples, the refusal sentence, 38 of 38 in-sample and 12 of 17 on new wording.
-10. Security and testing: 435 tests, 94 browser checks, privacy-safe logs.
+9. Evidence-grounded questions: examples, the refusal sentence, 38 of 38 in-sample (regression); 34 of 35 supported and 39 of 39 unsafe correct on 74 reworded questions, all written by the author.
+10. Security and testing: 485 tests, 97 browser checks, privacy-safe logs.
 11. What remains and why (chest X-ray gate, approvals, clinical review) and the plan.
 12. Questions for the supervisor (the open decisions in `docs/SCOPE_REVIEW.md` §8).
 

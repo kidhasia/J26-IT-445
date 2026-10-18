@@ -33,3 +33,6 @@ logs/
 
 # Signed proposal/TAF documents stay local (they contain signatures and personal details)
 /*.pdf
+
+# macOS
+.DS_Store
