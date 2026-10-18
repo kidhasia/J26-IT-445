@@ -5,10 +5,12 @@ held-out TEST image through the real API code with the real checkpoint, and comp
 number saved by training. This does not tune anything; it only checks that serving matches training.
 It prints aggregates only: no ids, file names or per-image results.
 
+For every image the API served, its prediction is compared with the offline prediction made from the exact
+cached training arrays. Images the API refuses (for example files above the upload limit) are reported separately.
+
 Usage:  .venv/bin/python scripts/check_api_matches_training.py RUN_DIR METADATA_CSV IMAGES_DIR
 """
 
-import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -22,6 +24,7 @@ from lumi.auth import parse_api_keys  # noqa: E402
 from lumi.config import Settings  # noqa: E402
 from lumi.main import create_app  # noqa: E402
 from lumi.ml.skin_data import CLASSES, load_samples, make_splits, resolve_duplicates  # noqa: E402
+from lumi.ml.offline import offline_probabilities  # noqa: E402
 from lumi.ml.train_skin import compute_metrics  # noqa: E402
 
 
@@ -37,7 +40,8 @@ def main(run_dir: Path, metadata: Path, images: Path) -> int:
                         skin_model_path=str(run_dir / "checkpoint.pt"), max_upload_bytes=10 * 1024 * 1024)
     client = TestClient(create_app(settings), headers={"Authorization": f"Bearer {key}"})
 
-    true, predicted, probabilities, rejected = [], [], [], {}
+    true, predicted, probabilities, rejected, served_index = [], [], [], {}, []
+    position = {s.img_id: i for i, s in enumerate(samples)}
     for sample in test:
         response = client.post("/api/v1/analyze", data={"input_type": "skin_image"},
                                files={"file": ("image.png", sample.path.read_bytes(), "image/png")})
@@ -47,6 +51,7 @@ def main(run_dir: Path, metadata: Path, images: Path) -> int:
             continue
         by_class = {p["class"]: p["probability"] for p in response.json()["result"]["probabilities"]}
         row = [by_class[c] for c in CLASSES]
+        served_index.append(position[sample.img_id])
         true.append(CLASSES.index(sample.label))
         predicted.append(int(np.argmax(row)))
         probabilities.append(row)
@@ -55,11 +60,20 @@ def main(run_dir: Path, metadata: Path, images: Path) -> int:
     if not true:
         return 1
     api = compute_metrics(np.array(true), np.array(predicted), np.array(probabilities))
-    print(f"Macro-F1  API {api['macro_f1']:.4f}  vs  saved by training {saved['macro_f1']:.4f}")
-    print(f"Accuracy  API {api['accuracy']:.4f}  vs  saved by training {saved['accuracy']:.4f}")
-    match = len(true) == len(test) and abs(api["macro_f1"] - saved["macro_f1"]) < 0.01
-    print("RESULT:", "API matches the offline evaluation" if match else "DIFFERENCE FOUND, investigate before trusting the endpoint")
-    return 0 if match else 1
+    offline = offline_probabilities(run_dir, samples, served_index)
+    same = int((offline.argmax(1) == np.array(predicted)).sum())
+    worst = float(np.abs(offline - np.array(probabilities)).max())
+    print(f"Per-image check on the {len(true)} served images: identical predicted class for {same} of {len(true)}; "
+          f"largest probability difference {worst:.4f} (the API rounds to 4 decimals)")
+    print(f"Macro-F1 on the served images {api['macro_f1']:.4f} | training reported {saved['macro_f1']:.4f} on all {len(test)} test images")
+    refused = sum(rejected.values())
+    if refused:
+        print(f"NOTE: the API refused {refused} test image(s): {rejected}. Real files can exceed the upload limit; "
+              "a client must resize or compress large photos before upload.")
+    ok = same == len(true) and worst < 0.001
+    print("RESULT:", "API predictions are identical to the offline evaluation for every image it served"
+          if ok else "DIFFERENCE FOUND, investigate before trusting the endpoint")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

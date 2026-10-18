@@ -18,6 +18,11 @@ Chest X-ray, medical VQA and explainability are **not implemented**. Scope and o
 | Chest X-ray (`input_type=chest_xray`) | **Placeholder only**: returns `status: not_implemented`, no prediction |
 | Medical VQA, explainability (Grad-CAM) | Not started. Questions are accepted but not answered |
 
+**Results, limits and how to demonstrate it:** `docs/MODEL_CARD_skin_pad_ufes20.md` (real test results and limitations),
+`docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/SCOPE_REVIEW.md` (traceability and progress),
+`docs/DATA_GOVERNANCE.md` (datasets, licences, what is verified and what is pending).
+The skin model is a research prototype: not clinically validated, and not shown to be reliable for children.
+
 ## Train the skin-lesion model (needs the PAD-UFES-20 data under `data/raw/`)
 
 ```bash
@@ -40,10 +45,12 @@ export LUMI_SKIN_MODEL_PATH="$PWD/models/skin_pad_ufes20/<run id>/checkpoint.pt"
 ./scripts/run_dev.sh
 ```
 
-Check that the API reproduces the offline test evaluation (prints aggregates only):
+Check that the API reproduces the offline test evaluation, and measure the uncertainty of the test numbers (both print aggregates only):
 
 ```bash
 .venv/bin/python scripts/check_api_matches_training.py models/skin_pad_ufes20/<run id> \
+    data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
+.venv/bin/python scripts/bootstrap_test_ci.py models/skin_pad_ufes20/<run id> \
     data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
 ```
 

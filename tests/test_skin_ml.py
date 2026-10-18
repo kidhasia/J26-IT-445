@@ -323,6 +323,21 @@ def test_training_is_reproducible_on_cpu_for_a_fixed_seed(tmp_path):
     assert runs[0] == runs[1]
 
 
+def test_offline_predictions_reproduce_the_metrics_saved_by_training(tmp_path):
+    from lumi.ml.offline import offline_probabilities
+
+    metadata, images = make_dataset(tmp_path / "data")
+    run_dir = run_training(small_config(tmp_path, metadata, images), log=lambda _: None)
+    samples, _ = resolve_duplicates(load_samples(metadata, images))
+    split = make_splits(samples, 42)
+    indices = [i for i, s in enumerate(samples) if split[s.img_id] == "test"]
+    probabilities = offline_probabilities(run_dir, samples, indices, device="cpu")
+    truth = np.array([CLASSES.index(samples[i].label) for i in indices])
+    recomputed = compute_metrics(truth, probabilities.argmax(1), probabilities)
+    saved = json.loads((run_dir / "metrics.json").read_text())["test"]
+    assert recomputed["accuracy"] == saved["accuracy"] and recomputed["macro_f1"] == saved["macro_f1"]
+
+
 def test_cli_refuses_output_inside_the_image_folder(tmp_path, capsys):
     metadata, images = make_dataset(tmp_path / "data")
     code = train_skin.main(["--metadata", str(metadata), "--images", str(images), "--out-dir", str(images / "runs"), "--no-pretrained"])
