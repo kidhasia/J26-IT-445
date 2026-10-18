@@ -6,7 +6,7 @@ Everything below runs on your MacBook. Nothing is sent over the internet. Time n
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: all tests pass (312 on 2026-10-18)
+.venv/bin/python -m pytest -q          # expect: all tests pass (368 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
@@ -56,6 +56,12 @@ Optional proof that the interface works in a real browser (about 1 minute; needs
 ```
 Expect `80 of 80 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
 
+Optional proof of the lab-report reading accuracy (about 10 seconds; needs Tesseract; synthetic reports only):
+```bash
+.venv/bin/python -m lumi.eval.ocr_eval
+```
+Expect `Reports evaluated: 3`, `Reference text verified against every image: yes`, LUMI pipeline character error about 1.26% and word error about 11.67%, plain Tesseract about 1.10% and 10.00%. Say plainly that this is **three clean synthetic reports**, that every error was a dropped space beside a hyphen or "<", and that it does not show how the OCR performs on real reports. Full report: `docs/OCR_EVALUATION.md`.
+
 Optional proof that the attention maps come from the real model (about 1 minute; prints a deletion test and a randomisation test):
 ```bash
 .venv/bin/python scripts/check_gradcam_faithfulness.py models/skin_pad_ufes20/20261018T072750Z data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
@@ -69,7 +75,7 @@ Optional proof that the API matches the offline evaluation (about 2 minutes):
 Expect `identical predicted class for 454 of 454` and one image refused as too large.
 
 ## What to say honestly
-**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 312 automated tests and 80 real-browser checks.
+**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 368 automated tests and 80 real-browser checks.
 
 **Not finished:** chest X-ray analysis; medical question answering (questions are accepted but not answered); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
 

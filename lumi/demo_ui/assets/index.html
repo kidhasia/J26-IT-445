@@ -176,7 +176,7 @@
               <button type="button" class="btn ghost" id="lab-clear">Remove</button>
             </div>
             <p class="field-error" id="lab-error" role="alert" hidden></p>
-            <div class="callout info compact"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div>Use only synthetic practice reports. Text recognition accuracy has not been measured yet.</div></div>
+            <div class="callout info compact"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div>Use only synthetic practice reports. Text reading was measured only on a few clean synthetic reports, not on real ones.</div></div>
             <button type="button" class="btn primary block" id="lab-go">Read report</button>
           </div>
 
@@ -221,7 +221,7 @@
             <tbody>
               <tr><th scope="row">Skin photo scoring</th><td><span class="badge ok">Working</span></td><td>Six classes. Research prototype with limited accuracy.</td></tr>
               <tr><th scope="row">Attention map (Grad-CAM)</th><td><span class="badge warn">Experimental</span></td><td>Skin photos only. Coarse, and not reviewed by clinicians.</td></tr>
-              <tr><th scope="row">Lab report reading</th><td><span class="badge warn">Synthetic only</span></td><td>Images only. Accuracy not measured. No interpretation of results.</td></tr>
+              <tr><th scope="row">Lab report reading</th><td><span class="badge warn">Synthetic only</span></td><td>Images only. Accuracy measured on 3 clean synthetic reports, not on real ones. No interpretation of results.</td></tr>
               <tr><th scope="row">PDF lab reports</th><td><span class="badge neutral">Not supported</span></td><td>Accepted by the API but not analysed.</td></tr>
               <tr><th scope="row">Chest X-ray analysis</th><td><span class="badge info">In development</span></td><td>No model yet.</td></tr>
               <tr><th scope="row">Medical questions</th><td><span class="badge neutral">Not started</span></td><td>Planned, not built.</td></tr>
@@ -245,7 +245,7 @@
             <li><strong>Limited accuracy.</strong> It is wrong on roughly one photo in three, and it confuses several classes. Only 11 melanoma photos were in the test set, so melanoma performance is essentially unknown.</li>
             <li><strong>Scores are not probabilities of being right.</strong> They are the model's own relative scores across its six classes. A high score can still be wrong.</li>
             <li><strong>Small, single-source data.</strong> Other phones, lighting, skin tones, body sites and populations were not tested.</li>
-            <li><strong>Lab reports:</strong> only synthetic reports have been tried, accuracy has not been measured, and extracted values must be checked against the original.</li>
+            <li><strong>Lab reports:</strong> accuracy was measured only on a few clean, computer-drawn synthetic reports. It has not been tested on real or photographed reports, and extracted values must be checked against the original.</li>
           </ul>
           <p class="help">These figures describe the current dataset and trained model. See the model card for the exact run they belong to.</p>
         </div>

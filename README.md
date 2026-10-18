@@ -13,14 +13,14 @@ Skin results can optionally include a Grad-CAM attention map (a coarse picture o
 | Part | Status |
 |---|---|
 | `GET /health`, auth, rate limit, validation, safe logging | Working, tested |
-| Lab-report OCR (`input_type=lab_report`, PNG/JPEG) | Working on **synthetic** reports; PDFs and real reports not done; accuracy not yet measured (CER/WER pending) |
+| Lab-report OCR (`input_type=lab_report`, PNG/JPEG) | Working on **synthetic** reports. Measured on 3 clean synthetic reports only (character error 1.3%, word error 11.7%, almost all of it moved spaces; see `docs/OCR_EVALUATION.md`); PDFs and real reports not done |
 | Skin-lesion classifier (`input_type=skin_image`) | Working **when a trained checkpoint is configured**; otherwise the endpoint answers `503 model_unavailable` and never invents a prediction. Research prototype, not clinically validated (see `models/` run metrics and `docs/DATA_GOVERNANCE.md` §5) |
 | Chest X-ray (`input_type=chest_xray`) | **Placeholder only**: returns `status: not_implemented`, no prediction |
 | Attention map for skin photos (Grad-CAM, send `explain=true`) | Working and tested. Coarse (8 by 8 cells). Passed a deletion test and a randomisation test on the held-out images (model card §9). It describes the model, **not** the lesion, and has not been reviewed by clinicians |
 | Medical VQA | Not started. Questions are accepted but not answered |
 
 **Results, limits and how to demonstrate it:** `docs/MODEL_CARD_skin_pad_ufes20.md` (real test results and limitations),
-`docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/CHEST_XRAY_PLAN.md` (chest X-ray research, approval gate and pilot plan; nothing downloaded), `docs/SCOPE_REVIEW.md` (traceability and progress),
+`docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/CHEST_XRAY_PLAN.md` (chest X-ray research, approval gate and pilot plan; nothing downloaded), `docs/OCR_EVALUATION.md` (lab-report OCR accuracy on synthetic reports, with how to reproduce it), `docs/COMPLETION_ASSESSMENT.md` (how complete the project really is, and how that was calculated), `docs/SCOPE_REVIEW.md` (traceability and progress),
 `docs/DATA_GOVERNANCE.md` (datasets, licences, what is verified and what is pending).
 The skin model is a research prototype: not clinically validated, and not shown to be reliable for children.
 
@@ -81,6 +81,14 @@ cd "/Users/kidhasia/Desktop/Research Stuff"
 brew install tesseract
 .venv/bin/python scripts/make_synthetic_lab_reports.py   # sample synthetic reports in data/synthetic/lab_reports/
 ```
+
+## Measure the lab-report OCR accuracy (synthetic reports; needs Tesseract)
+
+```bash
+.venv/bin/python scripts/make_synthetic_lab_reports.py     # only if data/synthetic/lab_reports is missing
+.venv/bin/python -m lumi.eval.ocr_eval                      # verifies the references, scores LUMI vs plain Tesseract, writes docs/evaluations/ocr_synthetic_results.json
+```
+Details, results and limitations: `docs/OCR_EVALUATION.md`.
 
 ## Run tests
 

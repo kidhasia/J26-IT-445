@@ -36,6 +36,46 @@ DEFAULT_ROWS: tuple[SyntheticRow, ...] = (
 _COLUMNS_X = (60, 480, 640, 820)  # test name, result, unit, reference range
 
 
+COLUMN_HEADINGS = ("Test", "Result", "Unit", "Reference Range")
+
+
+@dataclass(frozen=True)
+class DrawnCell:
+    """One piece of text exactly as it is drawn: what, where, and which line and column of the report it is in."""
+
+    text: str
+    x: int
+    y: int
+    line: int  # 0 = banner, 1 = report id, 2 = column headings, 3 and up = table rows
+    column: int
+
+
+def layout_cells(rows: tuple[SyntheticRow, ...], report_id: str, font_size: int = 28) -> list[DrawnCell]:
+    """Every piece of text on the report, in the order and at the positions it is drawn. Empty cells are not drawn,
+    so they are not in this list. This single list drives both the drawing and the reference text."""
+    line_height = int(font_size * 2)
+    y = line_height // 2
+    cells = [DrawnCell(SYNTHETIC_BANNER, _COLUMNS_X[0], y, 0, 0)]
+    y += line_height
+    cells.append(DrawnCell(f"Report ID: {report_id}", _COLUMNS_X[0], y, 1, 0))
+    y += line_height * 2
+    cells += [DrawnCell(heading, x, y, 2, column) for column, (x, heading) in enumerate(zip(_COLUMNS_X, COLUMN_HEADINGS))]
+    for number, row in enumerate(rows):
+        y += line_height
+        values = (row.test_name, row.value, row.unit, row.reference_range)
+        cells += [DrawnCell(text, x, y, 3 + number, column) for column, (x, text) in enumerate(zip(_COLUMNS_X, values)) if text]
+    return cells
+
+
+def reference_lines(rows: tuple[SyntheticRow, ...], report_id: str) -> list[str]:
+    """The text printed on the report as a person reads it: one string per printed line, columns left to right
+    joined by a single space. This is the reference ("correct answer") used to score OCR."""
+    by_line: dict[int, list[DrawnCell]] = {}
+    for cell in layout_cells(rows, report_id):
+        by_line.setdefault(cell.line, []).append(cell)
+    return [" ".join(cell.text for cell in sorted(cells, key=lambda c: c.column)) for _, cells in sorted(by_line.items())]
+
+
 def render_lab_report(
     rows: tuple[SyntheticRow, ...] = DEFAULT_ROWS,
     report_id: str = "SYN-0001",
@@ -47,19 +87,8 @@ def render_lab_report(
     height = line_height * (len(rows) + 6)
     image = Image.new("RGB", (1240, height), "white")
     draw = ImageDraw.Draw(image)
-
-    y = line_height // 2
-    draw.text((_COLUMNS_X[0], y), SYNTHETIC_BANNER, font=font, fill="black")
-    y += line_height
-    draw.text((_COLUMNS_X[0], y), f"Report ID: {report_id}", font=font, fill="black")
-    y += line_height * 2
-    for x, heading in zip(_COLUMNS_X, ("Test", "Result", "Unit", "Reference Range")):
-        draw.text((x, y), heading, font=font, fill="black")
-    for row in rows:
-        y += line_height
-        for x, cell in zip(_COLUMNS_X, (row.test_name, row.value, row.unit, row.reference_range)):
-            if cell:
-                draw.text((x, y), cell, font=font, fill="black")
+    for cell in layout_cells(rows, report_id, font_size):
+        draw.text((cell.x, cell.y), cell.text, font=font, fill="black")
 
     buf = BytesIO()
     image.save(buf, format=image_format)

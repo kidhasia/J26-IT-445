@@ -1,0 +1,910 @@
+{
+  "evaluation": {
+    "name": "Lab-report OCR on synthetic reports",
+    "format_version": 1,
+    "software": {
+      "python": "3.12.15",
+      "pillow": "12.3.0",
+      "tesseract": "tesseract 5.5.3"
+    },
+    "reports_folder": "lab_reports"
+  },
+  "dataset": {
+    "reports": 3,
+    "images": [
+      {
+        "name": "syn_0001_complete",
+        "sha256": "a9495918c0d3e6d5de40f673097f5f6e997c9732168b8473f3d50dc5cfea75f0",
+        "report_id": "SYN-0001",
+        "rows": 6,
+        "reference_lines": [
+          "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA",
+          "Report ID: SYN-0001",
+          "Test Result Unit Reference Range",
+          "Haemoglobin 12.1 g/dL 11.5 - 15.5",
+          "Haematocrit 36.5 % 34 - 45",
+          "Mean cell volume 82 fL 75 - 95",
+          "Sodium 139 mmol/L 135 - 145",
+          "Glucose 5.1 mmol/L 3.9 - 5.8",
+          "C-reactive protein 4 mg/L < 5"
+        ]
+      },
+      {
+        "name": "syn_0002_missing_value",
+        "sha256": "7aeb296734a871d12daa7a774d7f8d7f2d45e2174ff65f08a9e65e597fa0fe6a",
+        "report_id": "SYN-0002",
+        "rows": 3,
+        "reference_lines": [
+          "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA",
+          "Report ID: SYN-0002",
+          "Test Result Unit Reference Range",
+          "Haemoglobin g/dL 11.5 - 15.5",
+          "Haematocrit 36.5 % 34 - 45",
+          "Mean cell volume 82 fL 75 - 95"
+        ]
+      },
+      {
+        "name": "syn_0003_missing_range",
+        "sha256": "97af03f4ba95b3fec76249c7fc2ddbd1e12e4f0fea34a9d12740cafb5d82b2d7",
+        "report_id": "SYN-0003",
+        "rows": 3,
+        "reference_lines": [
+          "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA",
+          "Report ID: SYN-0003",
+          "Test Result Unit Reference Range",
+          "Sodium 139 mmol/L",
+          "Glucose 5.1 mmol/L 3.9 - 5.8",
+          "C-reactive protein 4 mg/L < 5"
+        ]
+      }
+    ],
+    "reference_characters_total": 637,
+    "reference_words_total": 120,
+    "table_rows_total": 12,
+    "distinct_table_rows": 8,
+    "what_the_reports_are": "Computer-drawn synthetic reports: one table layout, one font (Pillow's built-in default at 28 px), black text on white, no noise, skew, stamps, logos or handwriting. Reports 2 and 3 reuse rows from report 1."
+  },
+  "reference_verification": {
+    "syn_0001_complete": "verified",
+    "syn_0002_missing_value": "verified",
+    "syn_0003_missing_range": "verified"
+  },
+  "procedure": {
+    "reference": "The text printed on each report, one string per printed line, columns left to right joined by one space. It is derived from the same list that draws the image and checked against the image (regeneration plus an independent ink check) before scoring.",
+    "edit_distance": "Smallest number of substitutions, deletions and insertions that turns the reference into the system's text. Ties in the split are broken: match or substitution first, then deletion, then insertion.",
+    "cer": "Character edit distance divided by the number of reference characters.",
+    "wer": "Word edit distance divided by the number of reference words. Words are the pieces left after splitting on white space.",
+    "text_levels": {
+      "cer_raw": "No change to either text. New lines and any blank lines or form feeds count as characters.",
+      "cer_line_aware": "Spaces inside each line collapsed, blank lines dropped, lines kept apart by one new line character.",
+      "cer_whitespace_normalised": "PRIMARY. Every run of white space (including new lines) becomes one space; the ends are trimmed.",
+      "wer": "Splitting into words ignores white space differences by definition, so it has one level."
+    },
+    "never_changed": "Case, punctuation, digits, letters and the order of words are never altered, and no difficult text or wrong value is removed.",
+    "aggregates": "micro = total errors over total reference length across all reports (the headline); macro = plain average of the per-report rates.",
+    "undefined_rate": "A rate is undefined (null) when the reference is empty but the system's text is not."
+  },
+  "systems": {
+    "lumi_pipeline": {
+      "description": "The LUMI lab-report pipeline exactly as the API runs it (lumi.pipelines.ocr.pipeline.LabReportOcrPipeline): the image is turned upright and converted to greyscale, Tesseract reads it with page-segmentation mode 6 ('one uniform block of text'), words are grouped into lines, and result rows are then parsed from the lines.",
+      "aggregate": {
+        "reports": 3,
+        "cer_whitespace_normalised": {
+          "substitutions": 0,
+          "deletions": 8,
+          "insertions": 0,
+          "edit_distance": 8,
+          "reference_length": 637,
+          "hypothesis_length": 629,
+          "error_rate": 0.012559,
+          "macro_average_rate": 0.012227
+        },
+        "cer_line_aware": {
+          "substitutions": 0,
+          "deletions": 8,
+          "insertions": 0,
+          "edit_distance": 8,
+          "reference_length": 637,
+          "hypothesis_length": 629,
+          "error_rate": 0.012559,
+          "macro_average_rate": 0.012227
+        },
+        "cer_raw": {
+          "substitutions": 0,
+          "deletions": 8,
+          "insertions": 0,
+          "edit_distance": 8,
+          "reference_length": 637,
+          "hypothesis_length": 629,
+          "error_rate": 0.012559,
+          "macro_average_rate": 0.012227
+        },
+        "wer": {
+          "substitutions": 6,
+          "deletions": 8,
+          "insertions": 0,
+          "edit_distance": 14,
+          "reference_length": 120,
+          "hypothesis_length": 112,
+          "error_rate": 0.116667,
+          "macro_average_rate": 0.114792
+        },
+        "word_error_categories": {
+          "missing_word": 0,
+          "missing_number": 0,
+          "extra_word": 0,
+          "extra_number": 0,
+          "wrong_characters_in_word": 0,
+          "wrong_number": 0,
+          "word_boundary": 14
+        },
+        "word_edits_caused_by_word_order": 0,
+        "total_word_edits": 14,
+        "lines_reproduced_exactly": {
+          "reproduced": 15,
+          "reference_lines": 21
+        },
+        "character_errors_by_kind": {
+          "deleted_space": 8
+        },
+        "most_common_character_swaps": []
+      },
+      "field_level": {
+        "ground_truth_rows": 12,
+        "rows_parsed": 12,
+        "row_recall": 1.0,
+        "row_precision": 1.0,
+        "fields_exactly_correct": {
+          "value": 12,
+          "unit": 12,
+          "reference_range": 12
+        },
+        "field_exact_accuracy": 1.0,
+        "rows_helped_by_range_spacing_normalisation": 6,
+        "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+        "rows_flagged_for_review_although_every_field_was_correct": 2
+      },
+      "per_report": [
+        {
+          "report": "syn_0001_complete",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 0,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 277,
+              "hypothesis_length": 273,
+              "error_rate": 0.01444
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 277,
+              "hypothesis_length": 273,
+              "error_rate": 0.01444
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 277,
+              "hypothesis_length": 273,
+              "error_rate": 0.01444
+            },
+            "wer": {
+              "substitutions": 3,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 7,
+              "reference_length": 54,
+              "hypothesis_length": 50,
+              "error_rate": 0.12963
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 7
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "75 - 95",
+                  "read_as": "75-95"
+                },
+                {
+                  "reference": "- 5.8",
+                  "read_as": "-5.8"
+                },
+                {
+                  "reference": "< 5",
+                  "read_as": "<5"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 7,
+            "edits_needed_if_order_were_ignored": 7,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 4
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 9,
+            "reproduced_exactly": 6,
+            "not_reproduced": [
+              "Mean cell volume 82 fL 75 - 95",
+              "Glucose 5.1 mmol/L 3.9 - 5.8",
+              "C-reactive protein 4 mg/L < 5"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 6,
+            "rows_parsed": 6,
+            "rows_matched_by_name": 6,
+            "fields_exactly_correct": {
+              "value": 6,
+              "unit": 6,
+              "reference_range": 6
+            },
+            "field_slots": 18,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "Mean cell volume 82 fL 75-95",
+                "reported_as": "75 - 95"
+              },
+              {
+                "as_read": "Glucose 5.1 mmol/L 3.9 -5.8",
+                "reported_as": "3.9 - 5.8"
+              },
+              {
+                "as_read": "C-reactive protein 4 mg/L <5",
+                "reported_as": "< 5"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 0
+          },
+          "reference_sha256": "78f386097b4c65ccb150b173ea79b4a50769ed23d2607eb3b70e168b9fad1f9c",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\nReport ID: SYN-0001\nTest Result Unit Reference Range\nHaemoglobin 12.1 g/dL 11.5 - 15.5\nHaematocrit 36.5 % 34 - 45\nMean cell volume 82 fL 75-95\nSodium 139 mmol/L 135 - 145\nGlucose 5.1 mmol/L 3.9 -5.8\nC-reactive protein 4 mg/L <5"
+        },
+        {
+          "report": "syn_0002_missing_value",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 185,
+              "hypothesis_length": 183,
+              "error_rate": 0.010811
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 185,
+              "hypothesis_length": 183,
+              "error_rate": 0.010811
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 185,
+              "hypothesis_length": 183,
+              "error_rate": 0.010811
+            },
+            "wer": {
+              "substitutions": 1,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 3,
+              "reference_length": 35,
+              "hypothesis_length": 33,
+              "error_rate": 0.085714
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 3
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "75 - 95",
+                  "read_as": "75-95"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 3,
+            "edits_needed_if_order_were_ignored": 3,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 2
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 6,
+            "reproduced_exactly": 5,
+            "not_reproduced": [
+              "Mean cell volume 82 fL 75 - 95"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 3,
+            "rows_parsed": 3,
+            "rows_matched_by_name": 3,
+            "fields_exactly_correct": {
+              "value": 3,
+              "unit": 3,
+              "reference_range": 3
+            },
+            "field_slots": 9,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "Mean cell volume 82 fL 75-95",
+                "reported_as": "75 - 95"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 1
+          },
+          "reference_sha256": "1cbea7d75da532b60d04233c47777e9202bd1e04f5b51b237d6efd3f6b86cc57",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\nReport ID: SYN-0002\nTest Result Unit Reference Range\nHaemoglobin g/dL 11.5 - 15.5\nHaematocrit 36.5 % 34 - 45\nMean cell volume 82 fL 75-95"
+        },
+        {
+          "report": "syn_0003_missing_range",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 175,
+              "hypothesis_length": 173,
+              "error_rate": 0.011429
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 175,
+              "hypothesis_length": 173,
+              "error_rate": 0.011429
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 175,
+              "hypothesis_length": 173,
+              "error_rate": 0.011429
+            },
+            "wer": {
+              "substitutions": 2,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 31,
+              "hypothesis_length": 29,
+              "error_rate": 0.129032
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 4
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "- 5.8",
+                  "read_as": "-5.8"
+                },
+                {
+                  "reference": "< 5",
+                  "read_as": "<5"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 4,
+            "edits_needed_if_order_were_ignored": 4,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 2
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 6,
+            "reproduced_exactly": 4,
+            "not_reproduced": [
+              "Glucose 5.1 mmol/L 3.9 - 5.8",
+              "C-reactive protein 4 mg/L < 5"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 3,
+            "rows_parsed": 3,
+            "rows_matched_by_name": 3,
+            "fields_exactly_correct": {
+              "value": 3,
+              "unit": 3,
+              "reference_range": 3
+            },
+            "field_slots": 9,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "Glucose 5.1 mmol/L 3.9 -5.8",
+                "reported_as": "3.9 - 5.8"
+              },
+              {
+                "as_read": "C-reactive protein 4 mg/L <5",
+                "reported_as": "< 5"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 1
+          },
+          "reference_sha256": "0f1b3ffb435b22415ea7395633fe0e81feb27b95cb713314fe900c432ecd51d7",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\nReport ID: SYN-0003\nTest Result Unit Reference Range\nSodium 139 mmol/L\nGlucose 5.1 mmol/L 3.9 -5.8\nC-reactive protein 4 mg/L <5"
+        }
+      ]
+    },
+    "plain_tesseract": {
+      "description": "Tesseract with its default settings run straight on the original image file: `tesseract IMAGE stdout` (default page-segmentation mode 3, English). No preprocessing and no parsing.",
+      "aggregate": {
+        "reports": 3,
+        "cer_whitespace_normalised": {
+          "substitutions": 0,
+          "deletions": 7,
+          "insertions": 0,
+          "edit_distance": 7,
+          "reference_length": 637,
+          "hypothesis_length": 630,
+          "error_rate": 0.010989,
+          "macro_average_rate": 0.010322
+        },
+        "cer_line_aware": {
+          "substitutions": 0,
+          "deletions": 7,
+          "insertions": 0,
+          "edit_distance": 7,
+          "reference_length": 637,
+          "hypothesis_length": 630,
+          "error_rate": 0.010989,
+          "macro_average_rate": 0.010322
+        },
+        "cer_raw": {
+          "substitutions": 4,
+          "deletions": 5,
+          "insertions": 12,
+          "edit_distance": 21,
+          "reference_length": 637,
+          "hypothesis_length": 644,
+          "error_rate": 0.032967,
+          "macro_average_rate": 0.032368
+        },
+        "wer": {
+          "substitutions": 5,
+          "deletions": 7,
+          "insertions": 0,
+          "edit_distance": 12,
+          "reference_length": 120,
+          "hypothesis_length": 113,
+          "error_rate": 0.1,
+          "macro_average_rate": 0.093287
+        },
+        "word_error_categories": {
+          "missing_word": 0,
+          "missing_number": 0,
+          "extra_word": 0,
+          "extra_number": 0,
+          "wrong_characters_in_word": 0,
+          "wrong_number": 0,
+          "word_boundary": 12
+        },
+        "word_edits_caused_by_word_order": 0,
+        "total_word_edits": 12,
+        "lines_reproduced_exactly": {
+          "reproduced": 16,
+          "reference_lines": 21
+        },
+        "character_errors_by_kind": {
+          "deleted_space": 7
+        },
+        "most_common_character_swaps": []
+      },
+      "field_level": {
+        "ground_truth_rows": 12,
+        "rows_parsed": 12,
+        "row_recall": 1.0,
+        "row_precision": 1.0,
+        "fields_exactly_correct": {
+          "value": 12,
+          "unit": 12,
+          "reference_range": 12
+        },
+        "field_exact_accuracy": 1.0,
+        "rows_helped_by_range_spacing_normalisation": 5,
+        "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+        "rows_flagged_for_review_although_every_field_was_correct": 12
+      },
+      "per_report": [
+        {
+          "report": "syn_0001_complete",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 2,
+              "deletions": 3,
+              "insertions": 5,
+              "edit_distance": 10,
+              "reference_length": 277,
+              "hypothesis_length": 279,
+              "error_rate": 0.036101
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 277,
+              "hypothesis_length": 273,
+              "error_rate": 0.01444
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 4,
+              "reference_length": 277,
+              "hypothesis_length": 273,
+              "error_rate": 0.01444
+            },
+            "wer": {
+              "substitutions": 3,
+              "deletions": 4,
+              "insertions": 0,
+              "edit_distance": 7,
+              "reference_length": 54,
+              "hypothesis_length": 50,
+              "error_rate": 0.12963
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 7
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "75 - 95",
+                  "read_as": "75-95"
+                },
+                {
+                  "reference": "- 5.8",
+                  "read_as": "-5.8"
+                },
+                {
+                  "reference": "< 5",
+                  "read_as": "<5"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 7,
+            "edits_needed_if_order_were_ignored": 7,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 4
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 9,
+            "reproduced_exactly": 6,
+            "not_reproduced": [
+              "Mean cell volume 82 fL 75 - 95",
+              "Glucose 5.1 mmol/L 3.9 - 5.8",
+              "C-reactive protein 4 mg/L < 5"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 6,
+            "rows_parsed": 6,
+            "rows_matched_by_name": 6,
+            "fields_exactly_correct": {
+              "value": 6,
+              "unit": 6,
+              "reference_range": 6
+            },
+            "field_slots": 18,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "Mean cell volume 82 fL 75-95",
+                "reported_as": "75 - 95"
+              },
+              {
+                "as_read": "Glucose 5.1 mmol/L 3.9 -5.8",
+                "reported_as": "3.9 - 5.8"
+              },
+              {
+                "as_read": "C-reactive protein 4 mg/L <5",
+                "reported_as": "< 5"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 6
+          },
+          "reference_sha256": "78f386097b4c65ccb150b173ea79b4a50769ed23d2607eb3b70e168b9fad1f9c",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\n\nReport ID: SYN-0001\n\nTest Result Unit Reference Range\nHaemoglobin 12.1 g/dL 11.5 - 15.5\nHaematocrit 36.5 % 34 - 45\n\nMean cell volume 82 fL 75-95\n\nSodium 139 mmol/L 135 - 145\nGlucose 5.1 mmol/L 3.9 -5.8\n\nC-reactive protein 4 mg/L <5\n"
+        },
+        {
+          "report": "syn_0002_missing_value",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 4,
+              "edit_distance": 6,
+              "reference_length": 185,
+              "hypothesis_length": 187,
+              "error_rate": 0.032432
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 185,
+              "hypothesis_length": 183,
+              "error_rate": 0.010811
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 185,
+              "hypothesis_length": 183,
+              "error_rate": 0.010811
+            },
+            "wer": {
+              "substitutions": 1,
+              "deletions": 2,
+              "insertions": 0,
+              "edit_distance": 3,
+              "reference_length": 35,
+              "hypothesis_length": 33,
+              "error_rate": 0.085714
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 3
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "34 - 45",
+                  "read_as": "34-45"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 3,
+            "edits_needed_if_order_were_ignored": 3,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 2
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 6,
+            "reproduced_exactly": 5,
+            "not_reproduced": [
+              "Haematocrit 36.5 % 34 - 45"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 3,
+            "rows_parsed": 3,
+            "rows_matched_by_name": 3,
+            "fields_exactly_correct": {
+              "value": 3,
+              "unit": 3,
+              "reference_range": 3
+            },
+            "field_slots": 9,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "Haematocrit 36.5 % 34-45",
+                "reported_as": "34 - 45"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 3
+          },
+          "reference_sha256": "1cbea7d75da532b60d04233c47777e9202bd1e04f5b51b237d6efd3f6b86cc57",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\n\nReport ID: SYN-0002\n\nTest Result Unit Reference Range\nHaemoglobin g/dL 11.5 - 15.5\nHaematocrit 36.5 % 34-45\n\nMean cell volume 82 fL 75 - 95\n"
+        },
+        {
+          "report": "syn_0003_missing_range",
+          "scores": {
+            "cer_raw": {
+              "substitutions": 2,
+              "deletions": 0,
+              "insertions": 3,
+              "edit_distance": 5,
+              "reference_length": 175,
+              "hypothesis_length": 178,
+              "error_rate": 0.028571
+            },
+            "cer_line_aware": {
+              "substitutions": 0,
+              "deletions": 1,
+              "insertions": 0,
+              "edit_distance": 1,
+              "reference_length": 175,
+              "hypothesis_length": 174,
+              "error_rate": 0.005714
+            },
+            "cer_whitespace_normalised": {
+              "substitutions": 0,
+              "deletions": 1,
+              "insertions": 0,
+              "edit_distance": 1,
+              "reference_length": 175,
+              "hypothesis_length": 174,
+              "error_rate": 0.005714
+            },
+            "wer": {
+              "substitutions": 1,
+              "deletions": 1,
+              "insertions": 0,
+              "edit_distance": 2,
+              "reference_length": 31,
+              "hypothesis_length": 30,
+              "error_rate": 0.064516
+            }
+          },
+          "word_error_categories": {
+            "counts": {
+              "missing_word": 0,
+              "missing_number": 0,
+              "extra_word": 0,
+              "extra_number": 0,
+              "wrong_characters_in_word": 0,
+              "wrong_number": 0,
+              "word_boundary": 2
+            },
+            "examples": {
+              "word_boundary": [
+                {
+                  "reference": "< 5",
+                  "read_as": "<5"
+                }
+              ]
+            }
+          },
+          "reading_order": {
+            "word_edit_distance": 2,
+            "edits_needed_if_order_were_ignored": 2,
+            "edits_caused_by_word_order": 0,
+            "same_words_different_order": false
+          },
+          "character_profile": {
+            "by_kind": {
+              "deleted_space": 1
+            },
+            "most_common_swaps": []
+          },
+          "lines": {
+            "reference_lines": 6,
+            "reproduced_exactly": 5,
+            "not_reproduced": [
+              "C-reactive protein 4 mg/L < 5"
+            ]
+          },
+          "fields": {
+            "ground_truth_rows": 3,
+            "rows_parsed": 3,
+            "rows_matched_by_name": 3,
+            "fields_exactly_correct": {
+              "value": 3,
+              "unit": 3,
+              "reference_range": 3
+            },
+            "field_slots": 9,
+            "wrong_or_missing": [],
+            "spurious_rows": [],
+            "reference_ranges_correct_only_after_pipeline_spacing_normalisation": [
+              {
+                "as_read": "C-reactive protein 4 mg/L <5",
+                "reported_as": "< 5"
+              }
+            ],
+            "rows_with_a_wrong_field_that_were_not_flagged_for_review": 0,
+            "rows_flagged_for_review_although_every_field_was_correct": 3
+          },
+          "reference_sha256": "0f1b3ffb435b22415ea7395633fe0e81feb27b95cb713314fe900c432ecd51d7",
+          "text_read": "SYNTHETIC TEST REPORT - NOT REAL PATIENT DATA\n\nReport ID: SYN-0003\n\nTest Result Unit Reference Range\nSodium 139 mmol/L\nGlucose 5.1 mmol/L 3.9 - 5.8\n\nC-reactive protein 4 mg/L <5\n"
+        }
+      ]
+    }
+  }
+}

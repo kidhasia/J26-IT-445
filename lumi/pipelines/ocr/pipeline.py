@@ -15,8 +15,8 @@ REFERENCE_RANGE_NOTE = (
     "laboratory and the patient's age, and LUMI does not judge whether any result is normal or abnormal."
 )
 OCR_NOT_VALIDATED_WARNING = (
-    "OCR_NOT_VALIDATED: OCR accuracy has not been evaluated yet (CER/WER measurement pending). "
-    "Check every value against the original report."
+    "OCR_NOT_VALIDATED: OCR accuracy has only been measured on a few clean synthetic reports (docs/OCR_EVALUATION.md) "
+    "and has not been validated on real reports. Check every value against the original report."
 )
 NO_TEXT_WARNING = "NO_TEXT_FOUND: OCR found no readable text in this image."
 NO_FIELDS_WARNING = "NO_FIELDS_PARSED: text was extracted but no test-result rows were recognised; see extracted_text."
