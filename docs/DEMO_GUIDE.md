@@ -3,10 +3,12 @@
 Everything below runs on your MacBook. Nothing is sent over the internet. Time needed: about 10 minutes.
 
 ## Before you start (once)
+Run `./scripts/demo_preflight.sh` first. It only reads things and must end with `READY`. A backup plan for failures is in `docs/SUBMISSION_PLAN.md` §4.
+
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: all tests pass (368 on 2026-10-18)
+.venv/bin/python -m pytest -q          # expect: all tests pass (435 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
@@ -35,6 +37,7 @@ On **Overview**, the tool cards show their real status taken from the server: Sk
 | Attention map | Same page, with **Show attention map (Grad-CAM)** switched on (it is by default) | the same photo | **"Attention map (experimental)"** under the label *"AI attention visualisation — not a diagnosis or proof of correctness."*, your photo beside the same photo with a coloured map (warmer = more influence), a colour scale, and a collapsible list of what the map can and cannot tell you. Switch it off and analyze again: the map disappears and the scores stay the same |
 | Lab-report reading | **Lab Reports**, then **Read report** | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | A yellow "Check every value against the original report" box and a table of 6 rows (test, result, unit, range as printed), each marked **Parsed** |
 | Missing values flagged | **Lab Reports** | `syn_0002_missing_value.png` | Haemoglobin's result shown as **Not found** with "Check against the original", not guessed |
+| Questions about a result | **Ask a question**, after you have analysed a photo and a report | (none; it uses the results already on screen) | Pick the lab result and ask "Which lab values were not found?" and "What was the reported haemoglobin value?"; pick the skin result and ask "What limitations apply to this result?". Then ask "Is this cancer?" and "Is my haemoglobin normal?": both are **refused** with "I cannot answer this from the available evidence.". The answer shows an evidence-not-verified warning |
 | Chest X-ray is unfinished | **Chest X-ray** | (nothing to upload) | A page that says it is **In development**, that there is no chest X-ray model, and that it makes no predictions. It has no upload control on purpose |
 | Limits and data | **About LUMI** | | What works, the PAD-UFES-20 dataset, the model's measured score from the server, and the limitations, including that it is not validated for children |
 | Honest refusal without a model | Stop the server (`Ctrl+C`), run `LUMI_SKIN_MODEL_PATH=/nonexistent ./scripts/run_dev.sh`, reload | the same skin photo | Overview shows "Model not set up" in red, and Skin Analysis explains that no analysis was done |

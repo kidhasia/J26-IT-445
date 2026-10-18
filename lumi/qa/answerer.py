@@ -31,7 +31,8 @@ REFUSAL_WORDS = frozenset(
     "cancer cancerous tumor tumour malignant benign diagnose diagnosed diagnosis disease infection infected treat treated "
     "treatment therapy medicine medication drug drugs dose dosage surgery prognosis cure worry worried serious dangerous "
     "danger urgent emergency healthy unhealthy normal abnormal safe unsafe advice advise recommend recommended "
-    "recommendation should symptom symptoms cause causes".split()
+    "recommendation should symptom symptoms cause causes high higher low lower elevated raised concern concerned concerning "
+    "harmful risk risky likely unlikely good bad worse better improve improved".split()
 )
 REFUSAL_PHRASES = (
     "does the child have", "does he have", "does she have", "do they have", "do i have", "have i got", "could it be",
