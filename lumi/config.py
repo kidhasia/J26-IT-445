@@ -26,10 +26,13 @@ class Settings:
     # {sha256(api key): client_id}. Empty means every /api request is rejected (fail closed).
     api_key_hashes: Mapping[str, str] = field(default_factory=dict)
     rate_limit_per_minute: int = 60
+    # Path to a trained skin-lesion checkpoint. None means "not configured": the skin endpoint answers 503.
+    skin_model_path: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "Settings":
         return cls(
             api_key_hashes=parse_api_keys(env.get("LUMI_API_KEYS", "")),
             rate_limit_per_minute=int(env.get("LUMI_RATE_LIMIT_PER_MINUTE", "60")),
+            skin_model_path=env.get("LUMI_SKIN_MODEL_PATH") or None,
         )

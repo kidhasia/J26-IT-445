@@ -155,3 +155,58 @@ Git keeps everything forever: deleting a file later does **not** remove it from 
 What **may** be committed: code, tests, these governance documents, completed data cards (without patient-level rows), the synthetic-report **generator** (the images are regenerated on demand), and aggregate evaluation results.
 
 If something sensitive is ever committed by mistake: **stop, don't push**, and ask your supervisor. Removing it from history needs special tools, and if it has already been pushed, the data must be treated as exposed.
+
+---
+
+## 5. Acquisition log (updated 2026-10-18)
+
+Legend: **VERIFIED** = read on the official source on the date shown. **UNVERIFIED** = only seen via a mirror, a search summary or memory. **PENDING** = needs your supervisor or another party. Nothing in this section is legal advice.
+
+### 5.1 Status at a glance
+
+| Dataset | Used for | Licence | Downloaded? | Use status |
+|---|---|---|---|---|
+| **PAD-UFES-20** v1 | Skin-lesion classifier (SO2/FR3) | CC BY 4.0 (VERIFIED) | **Yes**, 2026-10-18, and inspected | **In use for the research prototype.** Supervisor confirmation PENDING (see §5.3) |
+| HAM10000 | Skin (alternative) | CC BY-NC 4.0 (VERIFIED 2026-10-16) | No | **On hold.** Non-commercial; conflicts with the proposal's commercialisation section until your supervisor decides |
+| NIH ChestX-ray14 | Chest X-ray | UNVERIFIED (the official page could not be read by my tools; a mirror quotes an NIH FAQ saying use is unrestricted if you link to the source, acknowledge the NIH Clinical Center and cite the CVPR 2017 paper) | No (about 45 GB, terms unverified) | **Not started.** Read the NIH page yourself first |
+| VQA-RAD | Medical VQA | CC0 1.0 Universal (VERIFIED via the OSF API, node 89kps, 2026-10-18) | No | **Candidate**, not yet used. Small (315 images). Dataset contents and size not yet inspected |
+| Synthetic lab reports | OCR | Created by the project | Generated locally | In use (see data_cards/synthetic_lab_reports.md) |
+
+### 5.2 PAD-UFES-20: the dataset actually used
+
+| Item | Record |
+|---|---|
+| Official source | Mendeley Data, doi:10.17632/zr7vgbcyr2.1, version 1, published 2020-07-07. Read through the Mendeley public API (2026-10-18) |
+| Licence | **CC BY 4.0** (name and URL given by the record: creativecommons.org/licenses/by/4.0). Permits sharing and adapting, including commercially, **with attribution** |
+| Access | Public file links, no login and no click-through licence |
+| Files (names and byte sizes match the official listing exactly) | `imgs_part_1.zip` 1,245,184,680; `imgs_part_2.zip` 1,126,646,990; `imgs_part_3.zip` 1,220,565,093; `metadata.csv` 316,209 |
+| SHA-256 of the downloaded files | part_1 `0ab44f60938bf57445e12f518a8878954cc734e6b0aec6d01194e2d26b4b2dca`; part_2 `e2d9a3cbd58e823f5ae33163c48643e7d1b54ae3f9e145f01f8e9f16a363a60b`; part_3 `ecc4ef10143a43e1d01cb736773148607a78b530417eb76f2c38ad24bf5d0d2c`; metadata `14d145235cedb022548257acb0d84dcd949e2c916f65d2baa7c38ed5339e9527` |
+| Integrity | All three zips pass `unzip -t`. 2,298 PNG files extracted; 2,298 metadata rows; every id matched a file |
+| Storage | About 3.6 GB zips + about 3.6 GB extracted, under `data/raw/PAD-UFES-20/` (ignored by Git). Originals never modified |
+| Citation (VERIFIED from the paper) | Pacheco AGC, et al. "PAD-UFES-20: A skin lesion dataset composed of patient data and clinical images collected from smartphones." *Data in Brief* 32:106221 (2020). doi:10.1016/j.dib.2020.106221. Also cite the Mendeley dataset DOI and give attribution as CC BY 4.0 requires |
+| Content | Smartphone clinical photos (PNG, varying sizes, 147 to 3,476 px per side, nearly all square), 6 diagnoses: ACK 730, BCC 845, MEL 52, NEV 244, SCC 192 (includes Bowen's disease), SEK 235. About 58% biopsy-proven (from the record). 1,373 patients, 1,641 lesions, 2,298 images. Matches the inspector's counts exactly |
+| Ethics (stated by the dataset authors, not checked by me) | Collected by a UFES (Brazil) program with university ethics-committee and Plataforma Brasil approval and patient consent |
+| Patient/lesion identifiers | `patient_id`, `lesion_id`, `img_id` present. **Splits are by patient_id**; verified in code with a leakage check |
+
+**Findings from the inspector and follow-up checks (real data, 2026-10-18):**
+
+- 0 corrupt images. All 1,440 RGBA images are fully opaque (no transparency).
+- **15 duplicate image files**, all within a single patient. In **12 of the 15 pairs the same file carries two different diagnosis labels**. Rule applied (fixed before training): drop all copies when labels conflict (24 images), keep one copy when they agree (3 images dropped). **2,271 images remain.** Source data unchanged.
+- **Almost no children:** ages run 6 to 94, median 62. Only **39 of 2,298 images (23 of 1,373 patients) are from patients under 18, and all 39 are labelled NEV (benign nevus).** There is no pediatric melanoma/BCC/SCC/ACK/SEK data. **This is a serious limitation for a pediatric project (scope review C5).**
+- About 35% of the clinical-history columns (smoking, drinking, Fitzpatrick type, diameter, etc.) are empty. They are not used by the model.
+- Severe class imbalance (MEL 2.3%), so the held-out test set contains few melanoma images and its per-class numbers are noisy.
+
+### 5.3 Approvals: what is NOT yet settled (PENDING, ask your supervisor)
+
+1. Is a public CC BY 4.0 dataset that was de-identified by its authors acceptable without your own ethics application? (governance question 2 in §3.)
+2. Is a skin-cancer dataset of mostly adult patients acceptable for a *pediatric* system, given only 39 benign-nevus images from under-18s (C5)?
+3. The pretrained starting weights (`timm/efficientnet_b0.ra_in1k`, Hugging Face model card read 2026-10-18) are licensed **Apache-2.0**, public and not gated, but were trained on **ImageNet-1k**, whose own terms are research-oriented. Whether those terms affect commercial use of derived weights is **unresolved**; this matters for the commercialisation section.
+4. Final approval to present the trained model as thesis evidence.
+
+### 5.4 Other candidates researched but not downloaded
+
+| Candidate | What is known | Open points |
+|---|---|---|
+| NIH ChestX-ray14 | Original data is hosted by the NIH Clinical Center on Box (`nihcc.app.box.com/v/ChestXray-NIHCC`); the Box page could not be read by my tools. Labels are text-mined from reports. Citation: Wang et al., CVPR 2017 | Read the official README and terms yourself. Decide a subset size before downloading |
+| VQA-RAD | OSF doi:10.17605/OSF.IO/89KPS, CC0 1.0 (VERIFIED). A mirror reports 315 images and 2,248 question-answer pairs; the paper reports 3,515 questions; the difference is unresolved | Check contents on the OSF page; adult radiology only, so pediatric relevance is limited |
+| ISIC Archive (per-image CC0, CC-BY or CC-BY-NC) | Licence is set per image; the AWS Open Data registry lists an anonymous S3 bucket. A commercial-use-compatible subset could be built by filtering to CC0/CC-BY | Not investigated further today; check each image's licence |

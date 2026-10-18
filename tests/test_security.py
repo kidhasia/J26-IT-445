@@ -12,7 +12,7 @@ from lumi.errors import LumiError
 from lumi.main import create_app
 from lumi.ratelimit import RateLimiter
 from lumi.schemas import ErrorCode
-from tests.conftest import AUTH_HEADERS, TEST_API_KEY, make_png
+from tests.conftest import AUTH_HEADERS, TEST_API_KEY, build_test_service, make_png
 
 URL = "/api/v1/analyze"
 
@@ -92,7 +92,7 @@ def test_auth_is_checked_before_form_validation(anonymous_client):
 
 def test_no_keys_configured_fails_closed(settings):
     open_settings = dataclasses.replace(settings, api_key_hashes={})
-    client = TestClient(create_app(settings=open_settings), headers=AUTH_HEADERS)
+    client = TestClient(create_app(settings=open_settings, service=build_test_service()), headers=AUTH_HEADERS)
     assert post(client).status_code == 401
 
 
@@ -115,7 +115,7 @@ def test_rate_limiter_blocks_then_recovers_after_window():
 
 def test_api_returns_429_with_retry_after(settings):
     limited = dataclasses.replace(settings, rate_limit_per_minute=2)
-    client = TestClient(create_app(settings=limited), headers=AUTH_HEADERS)
+    client = TestClient(create_app(settings=limited, service=build_test_service()), headers=AUTH_HEADERS)
     assert post(client).status_code == 200
     assert post(client).status_code == 200
     response = post(client)

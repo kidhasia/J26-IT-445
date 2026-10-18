@@ -2,8 +2,50 @@
 
 Research prototype for **decision support only**. It does not diagnose and does not replace licensed clinicians.
 
-Current state: API skeleton with validation, API-key auth, rate limiting and privacy-safe logging.
-Skin and chest X-ray pipelines are **mocks that make no predictions**. Lab reports (PNG/JPEG) go through local Tesseract OCR and field parsing; PDFs are not analysed yet. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+Current state (see the status table below for exactly what is real):
+API with validation, API-key auth, rate limiting and privacy-safe logging; lab-report OCR on PNG/JPEG images (local Tesseract);
+a skin-lesion classifier fine-tuned on the public PAD-UFES-20 dataset (6 classes, adults almost exclusively).
+Chest X-ray, medical VQA and explainability are **not implemented**. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+
+
+## What works today
+
+| Part | Status |
+|---|---|
+| `GET /health`, auth, rate limit, validation, safe logging | Working, tested |
+| Lab-report OCR (`input_type=lab_report`, PNG/JPEG) | Working on **synthetic** reports; PDFs and real reports not done; accuracy not yet measured (CER/WER pending) |
+| Skin-lesion classifier (`input_type=skin_image`) | Working **when a trained checkpoint is configured**; otherwise the endpoint answers `503 model_unavailable` and never invents a prediction. Research prototype, not clinically validated (see `models/` run metrics and `docs/DATA_GOVERNANCE.md` §5) |
+| Chest X-ray (`input_type=chest_xray`) | **Placeholder only**: returns `status: not_implemented`, no prediction |
+| Medical VQA, explainability (Grad-CAM) | Not started. Questions are accepted but not answered |
+
+## Train the skin-lesion model (needs the PAD-UFES-20 data under `data/raw/`)
+
+```bash
+.venv/bin/python -m lumi.ml.train_skin \
+    --metadata data/raw/PAD-UFES-20/metadata.csv \
+    --images data/raw/PAD-UFES-20/images \
+    --out-dir models/skin_pad_ufes20
+```
+
+About 5 minutes on an Apple-silicon Mac (GPU via MPS). Each run is saved in `models/skin_pad_ufes20/<run id>/` with
+`checkpoint.pt`, `metrics.json`, `config.json` (seed, versions, split sizes, git commit) and `training_log.csv`.
+`models/` and `data/` are ignored by Git. Dataset download and licence record: `docs/DATA_GOVERNANCE.md` §5.
+
+## Use the trained model in the API
+
+Point `LUMI_SKIN_MODEL_PATH` at a checkpoint (only load checkpoints you trained yourself or trust):
+
+```bash
+export LUMI_SKIN_MODEL_PATH="$PWD/models/skin_pad_ufes20/<run id>/checkpoint.pt"
+./scripts/run_dev.sh
+```
+
+Check that the API reproduces the offline test evaluation (prints aggregates only):
+
+```bash
+.venv/bin/python scripts/check_api_matches_training.py models/skin_pad_ufes20/<run id> \
+    data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
+```
 
 ## Setup (once)
 
@@ -75,6 +117,7 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 | 429 | `rate_limited` | Over 60 requests/minute per client (`Retry-After` header given) |
 | 500 | `internal_error` | Unexpected failure (no internal details returned) |
 | 503 | `ocr_unavailable` | Tesseract missing or timed out |
+| 503 | `model_unavailable` | Skin model not configured or could not be loaded |
 
 Every response, including errors, uses the same JSON envelope and carries `request_id` and `clinical_boundary_notice`.
 
@@ -84,3 +127,4 @@ Every response, including errors, uses the same JSON envelope and carries `reque
 |---|---|---|
 | `LUMI_API_KEYS` | *(empty → all /api requests rejected)* | `client_id:key` pairs, comma-separated, keys of 16+ characters |
 | `LUMI_RATE_LIMIT_PER_MINUTE` | `60` | Per-client request limit |
+| `LUMI_SKIN_MODEL_PATH` | *(unset → skin endpoint answers 503)* | Path to a trained `checkpoint.pt` |

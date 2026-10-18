@@ -76,7 +76,7 @@ def _parse_metadata(raw: str | None) -> RequestMetadata | None:
 
 def create_app(settings: Settings | None = None, service: AnalysisService | None = None) -> FastAPI:
     settings = settings or Settings()
-    service = service or build_default_service()
+    service = service or build_default_service(settings)
     authenticator = ApiKeyAuthenticator(settings.api_key_hashes)
     rate_limiter = RateLimiter(settings.rate_limit_per_minute)
     if not settings.api_key_hashes:

@@ -24,6 +24,7 @@ class ErrorCode(str, Enum):
     UNAUTHORIZED = "unauthorized"
     RATE_LIMITED = "rate_limited"
     OCR_UNAVAILABLE = "ocr_unavailable"
+    MODEL_UNAVAILABLE = "model_unavailable"
     INTERNAL_ERROR = "internal_error"
 
 

@@ -31,6 +31,17 @@ PRESETS: dict[str, Preset] = {
         group_column="lesion_id",
         numeric_columns=("age",),
     ),
+    "pad_ufes_20": Preset(
+        description="PAD-UFES-20 metadata.csv (Mendeley Data, doi:10.17632/zr7vgbcyr2.1; comma-separated)",
+        provenance=(
+            "Column names match the paper's Table 1 (Data in Brief 32:106221) and were confirmed against the real "
+            "downloaded header on 2026-10-18 (26 columns, 2,298 rows)."
+        ),
+        id_column="img_id",
+        label_column="diagnostic",
+        group_column="patient_id",
+        numeric_columns=("age", "diameter_1", "diameter_2"),
+    ),
     "nih_cxr14": Preset(
         description="NIH ChestX-ray14 metadata (Data_Entry_2017 / Data_Entry_2017_v2020 CSV)",
         provenance=(
