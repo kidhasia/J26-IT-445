@@ -167,7 +167,7 @@ def main() -> int:
         check("server status shows connected", "connected" in text(b, "#server-pill"), text(b, "#server-pill"))
         badges = b.js("Array.from(document.querySelectorAll('[data-status-for]')).map(n => n.textContent)")
         check("overview shows real tool status from the server", badges == ["Working · research prototype", "Working · synthetic reports"], str(badges))
-        check("overview says the chest X-ray is in development and medical questions are not started", "In development" in text(b, "#page-overview") and "Not started" in text(b, "#page-overview"))
+        check("overview says the chest X-ray is in development and questions are API only", "In development" in text(b, "#page-overview") and "API only" in text(b, "#page-overview"))
         b.shot(out, "01_overview_desktop")
 
         for page, heading in (("skin", "Skin photo analysis"), ("lab", "Lab report reading"), ("xray", "Chest X-ray analysis"), ("about", "About LUMI")):

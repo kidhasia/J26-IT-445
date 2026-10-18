@@ -298,6 +298,7 @@
     invalid_field: ["Part of the request was not valid", "Check your choices and try again."],
     invalid_input_type: ["That kind of file is not supported here", "Use the Skin Analysis or Lab Reports page."],
     invalid_metadata: ["Part of the request was not valid", "Try again."],
+    invalid_evidence: ["The supplied result cannot be used", "Send the JSON returned by a completed skin or lab-report analysis."],
     model_unavailable: ["The skin model is not set up on this server", "No analysis was done and nothing was made up. Start LUMI with scripts/start_demo.command, or see docs/DEMO_GUIDE.md."],
     ocr_unavailable: ["Text reading is not available", "The text-reading program (Tesseract) is missing on this computer."],
     internal_error: ["Something went wrong on the server", "Try again. If it keeps happening, look at the terminal window that is running LUMI."]

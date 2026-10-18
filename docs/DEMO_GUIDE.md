@@ -26,7 +26,7 @@ Browser: **http://localhost:8000/** (the developer page is still at http://local
 
 You will see a menu on the left (on a phone it runs across the top) with five pages: **Overview, Skin Analysis, Lab Reports, Chest X-ray, About LUMI**. At the top right, a green **"Server connected"** label and an **API key** button (the key is already filled in for local use).
 
-On **Overview**, the tool cards show their real status taken from the server: Skin Analysis and Lab Reports are green; Chest X-ray says **In development** and Medical questions says **Not started**. If Skin Analysis shows "Model not set up" in red, the model was not found (see "If something goes wrong").
+On **Overview**, the tool cards show their real status taken from the server: Skin Analysis and Lab Reports are green; Chest X-ray says **In development** and Medical questions says **API only** (the question feature exists as `POST /api/v1/ask` but is not in this interface; see the README). If Skin Analysis shows "Model not set up" in red, the model was not found (see "If something goes wrong").
 
 ## Step 3: show each working feature
 | What to show | Where | File to upload | What you should see |
@@ -77,7 +77,7 @@ Expect `identical predicted class for 454 of 454` and one image refused as too l
 ## What to say honestly
 **Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 368 automated tests and 80 real-browser checks.
 
-**Not finished:** chest X-ray analysis; medical question answering (questions are accepted but not answered); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
+**Not finished:** chest X-ray analysis; image-based medical question answering (only a small rule-based `/api/v1/ask` exists: it answers from a supplied result, never from the image, and refuses everything else; it is not in the interface); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
 
 **Do not say:** that the model is clinically validated, that it is accurate enough for patients, or that it works for children. Do not say the heatmap shows where the disease is: it shows what influenced the model, and a clinician has not judged whether it is useful. The honest numbers are accuracy 0.63 and macro-F1 0.54 on 455 held-out images from adult-dominated data, with a melanoma figure based on only 11 cases.
 

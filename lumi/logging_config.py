@@ -51,5 +51,32 @@ def log_analyze(
     logger.info(json.dumps(record))
 
 
+def log_ask(
+    *,
+    request_id: str,
+    client_id: str,
+    status_code: int,
+    started: float,
+    error_code: ErrorCode | None = None,
+    input_type: str | None = None,
+    intents: list[str] | None = None,
+    answerable: bool | None = None,
+) -> None:
+    """One line per question. The question, the evidence and the answer are never logged; `intents` are internal topic
+    labels such as "lab.row" or "skin.predicted_class"."""
+    record = {
+        "event": "ask",
+        "request_id": request_id,
+        "client_id": client_id,
+        "input_type": input_type,
+        "status": status_code,
+        "error_code": error_code.value if error_code else None,
+        "answerable": answerable,
+        "intents": intents,
+        "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+    }
+    logger.info(json.dumps(record))
+
+
 def log_rejected(*, path: str, status_code: int, error_code: ErrorCode) -> None:
     logger.info(json.dumps({"event": "rejected", "path": path, "status": status_code, "error_code": error_code.value}))

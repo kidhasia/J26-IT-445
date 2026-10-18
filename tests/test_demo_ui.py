@@ -267,7 +267,7 @@ def test_chest_xray_page_is_honest_and_offers_nothing_to_run(page):
 
 def test_overview_states_the_real_status_of_every_tool(html_text, page):
     overview = page.sections["page-overview"]["html"]
-    for phrase in ("Not for clinical use", "Skin Analysis", "Lab Reports", "Chest X-ray", "Medical questions", "In development", "Not started"):
+    for phrase in ("Not for clinical use", "Skin Analysis", "Lab Reports", "Chest X-ray", "Medical questions", "In development", "API only"):
         assert phrase in overview, phrase
     assert html_text.count("data-status-for=") == 2  # skin and lab come from the live server; chest and questions are fixed text
 

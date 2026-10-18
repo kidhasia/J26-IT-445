@@ -14,7 +14,9 @@ from lumi import __version__
 from lumi.auth import ApiKeyAuthenticator
 from lumi.config import CLINICAL_BOUNDARY_NOTICE, MULTIPART_OVERHEAD_BYTES, Settings
 from lumi.errors import LumiError
-from lumi.logging_config import configure_logging, log_analyze, log_rejected, logger
+from lumi.logging_config import configure_logging, log_analyze, log_ask, log_rejected, logger
+from lumi.qa.answerer import answer_question
+from lumi.qa.evidence import EvidenceError, parse_evidence
 from lumi.ratelimit import RateLimiter
 from lumi.schemas import AnalyzeResponse, ErrorCode, ErrorDetail, InputType, RequestMetadata
 from lumi.service import AnalysisService, build_default_service
@@ -74,6 +76,71 @@ def _parse_metadata(raw: str | None) -> RequestMetadata | None:
         ) from exc
 
 
+ASK_PATH = "/api/v1/ask"
+ASK_MAX_BODY_BYTES = 300_000  # a question plus one analysis result; far smaller than an image upload
+ASK_MAX_QUESTION_CHARS = 500
+ASK_EVIDENCE_WARNING = (
+    "EVIDENCE_NOT_VERIFIED: the answer comes only from the evidence you supplied. LUMI did not check that it is "
+    "genuine or unchanged."
+)
+ASK_OPENAPI = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["question", "evidence"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "question": {"type": "string", "minLength": 1, "maxLength": ASK_MAX_QUESTION_CHARS},
+                        "evidence": {"type": "object", "description": "The JSON that POST /api/v1/analyze returned for a skin photo or a lab report."},
+                    },
+                }
+            }
+        },
+    }
+}
+
+
+async def _read_limited_body(request: Request, limit: int) -> bytes:
+    """Read the request body but stop as soon as it is larger than `limit` (also catches chunked uploads)."""
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise LumiError(413, ErrorCode.FILE_TOO_LARGE, f"The request body exceeds the {limit} byte limit for questions.")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _parse_ask_body(body: bytes) -> tuple[str, object]:
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The request body is not valid JSON.", field="body") from exc
+    if not isinstance(payload, dict):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The request body must be a JSON object.", field="body")
+    unexpected = sorted(set(payload) - {"question", "evidence"})
+    if unexpected:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "Only 'question' and 'evidence' are allowed.", field=str(unexpected[0])[:40])
+    for name in ("question", "evidence"):
+        if name not in payload:
+            raise LumiError(422, ErrorCode.MISSING_FIELD, f"Required field '{name}' is missing.", field=name)
+    question = payload["question"]
+    if not isinstance(question, str):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question must be text.", field="question")
+    question = question.strip()
+    if not question:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question is empty.", field="question")
+    if len(question) > ASK_MAX_QUESTION_CHARS:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, f"The question is longer than {ASK_MAX_QUESTION_CHARS} characters.", field="question")
+    if any(ord(ch) < 32 and ch not in "\t\n\r" for ch in question):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question contains control characters.", field="question")
+    return question, payload["evidence"]
+
+
 def create_app(settings: Settings | None = None, service: AnalysisService | None = None) -> FastAPI:
     settings = settings or Settings()
     service = service or build_default_service(settings)
@@ -89,15 +156,13 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         # Rejects obviously oversized uploads from the Content-Length header, before the body is read.
         # Chunked uploads without Content-Length are still caught later by the per-file size check.
         length = request.headers.get("content-length", "")
-        if (
-            request.url.path.startswith("/api/")
-            and length.isdigit()
-            and int(length) > settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES
-        ):
+        is_ask = request.url.path == ASK_PATH
+        limit = ASK_MAX_BODY_BYTES if is_ask else settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES
+        if request.url.path.startswith("/api/") and length.isdigit() and int(length) > limit:
             log_rejected(path=request.url.path, status_code=413, error_code=ErrorCode.FILE_TOO_LARGE)
             error = ErrorDetail(
                 code=ErrorCode.FILE_TOO_LARGE,
-                message=f"The request body exceeds the {settings.max_upload_bytes} byte upload limit.",
+                message=f"The request body exceeds the {ASK_MAX_BODY_BYTES if is_ask else settings.max_upload_bytes} byte limit.",
             )
             return _error_response(413, error)
         return await call_next(request)
@@ -220,6 +285,43 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
             explain=explain,
         )
         return response
+
+    @app.post(ASK_PATH, response_model=AnalyzeResponse, openapi_extra=ASK_OPENAPI)
+    async def ask(request: Request, client_id: str = Depends(require_client)):
+        """Answer a simple factual question using ONLY the analysis result you supply as evidence.
+
+        Not a medical chatbot: no model, no network, nothing stored. Anything the evidence cannot answer (and any request
+        for a diagnosis, advice, or whether a result is normal) gets: "I cannot answer this from the available evidence."
+        """
+        request_id = _new_request_id()
+        started = time.perf_counter()
+        input_type_seen: str | None = None
+        try:
+            if not request.headers.get("content-type", "").lower().startswith("application/json"):
+                raise LumiError(415, ErrorCode.UNSUPPORTED_MEDIA_TYPE, "Send the question as JSON (Content-Type: application/json).")
+            question, raw_evidence = _parse_ask_body(await _read_limited_body(request, ASK_MAX_BODY_BYTES))
+            try:
+                evidence = parse_evidence(raw_evidence)
+            except EvidenceError as exc:
+                raise LumiError(422, ErrorCode.INVALID_EVIDENCE, exc.message, field="evidence") from exc
+            input_type_seen = evidence.input_type
+            answer = answer_question(question, evidence)
+        except LumiError as exc:
+            log_ask(request_id=request_id, client_id=client_id, status_code=exc.status_code, started=started, error_code=exc.code, input_type=input_type_seen)
+            error = ErrorDetail(code=exc.code, message=exc.message, field=exc.field)
+            return _error_response(exc.status_code, error, request_id=request_id, headers=exc.headers)
+
+        log_ask(request_id=request_id, client_id=client_id, status_code=200, started=started, input_type=input_type_seen,
+                intents=answer.intents, answerable=answer.answerable)
+        return AnalyzeResponse(
+            request_id=request_id,
+            input_type=InputType(evidence.input_type),
+            result={"mode": "evidence_grounded_qa", "answerable": answer.answerable, "intents": answer.intents, "evidence_used": answer.evidence_used},
+            answer=answer.text,
+            explanation=answer.note,
+            warnings=[ASK_EVIDENCE_WARNING],
+            clinical_boundary_notice=CLINICAL_BOUNDARY_NOTICE,
+        )
 
     return app
 

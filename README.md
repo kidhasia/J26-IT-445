@@ -5,7 +5,7 @@ Research prototype for **decision support only**. It does not diagnose and does 
 Current state (see the status table below for exactly what is real):
 API with validation, API-key auth, rate limiting and privacy-safe logging; lab-report OCR on PNG/JPEG images (local Tesseract);
 a skin-lesion classifier fine-tuned on the public PAD-UFES-20 dataset (6 classes, adults almost exclusively).
-Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray and medical VQA are **not implemented**. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray analysis and image-based medical VQA are **not implemented**; a small rule-based question-answering endpoint exists (see below). Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
 
 
 ## What works today
@@ -17,7 +17,7 @@ Skin results can optionally include a Grad-CAM attention map (a coarse picture o
 | Skin-lesion classifier (`input_type=skin_image`) | Working **when a trained checkpoint is configured**; otherwise the endpoint answers `503 model_unavailable` and never invents a prediction. Research prototype, not clinically validated (see `models/` run metrics and `docs/DATA_GOVERNANCE.md` §5) |
 | Chest X-ray (`input_type=chest_xray`) | **Placeholder only**: returns `status: not_implemented`, no prediction |
 | Attention map for skin photos (Grad-CAM, send `explain=true`) | Working and tested. Coarse (8 by 8 cells). Passed a deletion test and a randomisation test on the held-out images (model card §9). It describes the model, **not** the lesion, and has not been reviewed by clinicians |
-| Medical VQA | Not started. Questions are accepted but not answered |
+| Evidence-grounded questions (`POST /api/v1/ask`) | Working, tested, small. Rule-based; answers only from an analysis result you supply; see [Asking questions](#asking-questions-about-a-result). It is **not** image question answering (VQA) and not a medical chatbot |
 
 **Results, limits and how to demonstrate it:** `docs/MODEL_CARD_skin_pad_ufes20.md` (real test results and limitations),
 `docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/CHEST_XRAY_PLAN.md` (chest X-ray research, approval gate and pilot plan; nothing downloaded), `docs/OCR_EVALUATION.md` (lab-report OCR accuracy on synthetic reports, with how to reproduce it), `docs/COMPLETION_ASSESSMENT.md` (how complete the project really is, and how that was calculated), `docs/SCOPE_REVIEW.md` (traceability and progress),
@@ -128,11 +128,40 @@ curl -X POST http://localhost:8000/api/v1/analyze \
   -F "question=What does this show?"
 ```
 
+## Asking questions about a result
+
+`POST /api/v1/ask` answers simple factual questions about **one analysis result you already have** (the JSON that
+`/api/v1/analyze` returned for a skin photo or a lab report). It uses fixed rules only: no language model, no internet, nothing stored.
+
+```bash
+# 1. analyse a lab report and keep the answer
+curl -s -X POST http://localhost:8000/api/v1/analyze -H "Authorization: Bearer local-dev-key-not-for-production" \
+  -F input_type=lab_report -F "file=@report.png;type=image/png" > analysis.json
+
+# 2. ask a question about it
+python3 -c 'import json; print(json.dumps({"question": "Which lab values were not found?", "evidence": json.load(open("analysis.json"))}))' |
+  curl -s -X POST http://localhost:8000/api/v1/ask -H "Authorization: Bearer local-dev-key-not-for-production" \
+  -H "Content-Type: application/json" --data @-
+```
+
+The reply uses the usual envelope; the text is in `answer`. Questions it can answer: the predicted skin class, the top or per-class
+score, the attention map, the model, limitations and warnings; for lab reports, a named test's value, unit or range (for example
+"What was the reported haemoglobin value?"), which values, units or ranges were not found, which rows need review, how many rows
+were found, the text-reading confidence, and limitations.
+
+**Limits (read these):**
+- Anything else gets exactly: `I cannot answer this from the available evidence.` This includes diagnosis, "is it cancer?", "is it normal?", treatment or advice, tests that are not on the report, and questions about the other kind of result.
+- LUMI does **not** check that the evidence is genuine or unchanged (the reply carries an `EVIDENCE_NOT_VERIFIED` warning). Anyone who edits the evidence changes the answer.
+- English keyword matching only. Odd phrasing may be refused even when the answer is in the evidence. It does not understand images, only the structured result.
+- Only skin-photo and lab-report results are accepted (not the chest X-ray placeholder). Questions are at most 500 characters and the body at most 300,000 bytes. Same API key and rate limit as `/analyze`.
+- The question, the evidence and the answer are never written to the log. Not evaluated on real users or real reports; not clinically validated.
+
 ## API summary
 
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | Liveness check |
+| `POST /api/v1/ask` | `Authorization: Bearer <key>` | JSON: `question` (text, up to 500 characters) and `evidence` (the JSON that `/analyze` returned for a skin photo or lab report). Answers only from the evidence |
 | `POST /api/v1/analyze` | `Authorization: Bearer <key>` | Multipart: `input_type` (`skin_image` \| `chest_xray` \| `lab_report`), `file`, optional `question`, optional `metadata` (JSON with only `client_platform`, `client_version`, `locale`), optional `explain` (`true` adds a Grad-CAM attention map to skin results; off by default) |
 
 | Status | `error.code` | Meaning |
