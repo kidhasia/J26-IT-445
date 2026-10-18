@@ -110,3 +110,30 @@ def test_health_says_unavailable_when_no_skin_model_is_configured(settings):
 @pytest.mark.parametrize("path", ["/health", "/demo"])
 def test_health_and_page_need_no_api_key(settings, path):
     assert make_client(settings, demo_ui=True).get(path).status_code == 200
+
+
+# ---------------------------------------------------------------- attention map controls and display
+
+
+def test_page_offers_the_attention_map_tickbox_and_sends_the_explain_field():
+    page = render_demo_page()
+    assert 'id="explain"' in page and "Grad-CAM" in page
+    assert 'form.append("explain", "true")' in page
+
+
+def test_page_always_shows_the_required_attention_map_label():
+    page = render_demo_page()
+    assert "AI attention visualisation" in page and "not a diagnosis or proof of correctness." in page
+    assert "img.label || FALLBACK_LABEL" in page  # shown even if the server omitted it
+
+
+def test_page_only_displays_a_map_that_is_a_jpeg_of_base64_characters():
+    page = render_demo_page()
+    assert 'img.mime_type !== "image/jpeg"' in page and "BASE64_ONLY.test(img.image_base64)" in page
+    assert '"data:image/jpeg;base64," + img.image_base64' in page
+
+
+def test_csp_lets_the_map_image_display_but_still_blocks_other_sources(settings):
+    policy = make_client(settings, demo_ui=True).get("/demo").headers["content-security-policy"]
+    assert "img-src 'self' blob: data:" in policy and "default-src 'none'" in policy
+    assert "script-src 'unsafe-inline'" in policy and "http" not in policy

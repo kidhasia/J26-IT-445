@@ -165,6 +165,7 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         file: UploadFile = File(...),
         question: str | None = Form(None),
         metadata: str | None = Form(None),
+        explain: bool = Form(False),
         client_id: str = Depends(require_client),
     ):
         request_id = _new_request_id()
@@ -176,7 +177,7 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
             data = await file.read(settings.max_upload_bytes + 1)
             validated = validate_upload(input_type, data, file.content_type, file.filename, settings)
             # Pipelines may also raise LumiError (e.g. OCR engine unavailable -> 503).
-            response = service.analyze(request_id, input_type, validated, clean_question, parsed_metadata)
+            response = service.analyze(request_id, input_type, validated, clean_question, parsed_metadata, explain)
         except LumiError as exc:
             log_analyze(
                 request_id=request_id,
@@ -185,6 +186,7 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
                 status_code=exc.status_code,
                 started=started,
                 error_code=exc.code,
+                explain=explain,
             )
             error = ErrorDetail(code=exc.code, message=exc.message, field=exc.field)
             return _error_response(
@@ -200,6 +202,7 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
             mime_type=validated.mime_type,
             file_bytes=len(validated.data),
             has_question=clean_question is not None,
+            explain=explain,
         )
         return response
 

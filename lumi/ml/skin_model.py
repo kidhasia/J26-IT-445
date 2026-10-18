@@ -20,15 +20,27 @@ class CheckpointError(Exception):
     """The checkpoint is missing, unreadable or not in the expected format."""
 
 
+def letterbox_geometry(image_size: tuple[int, int], size: int) -> tuple[int, int, int, int]:
+    """Where the photo sits inside the padded square: (width, height, left offset, top offset).
+    Shared by letterbox() and the Grad-CAM overlay so both always agree on the geometry."""
+    scale = size / max(image_size)
+    new_width, new_height = max(1, round(image_size[0] * scale)), max(1, round(image_size[1] * scale))
+    return new_width, new_height, (size - new_width) // 2, (size - new_height) // 2
+
+
+def upright_rgb(image: Image.Image) -> Image.Image:
+    """Apply the EXIF rotation and convert to RGB (the same first step the model's preprocessing uses)."""
+    return ImageOps.exif_transpose(image).convert("RGB")
+
+
 def letterbox(image: Image.Image, size: int) -> Image.Image:
     """Upright (EXIF), convert to RGB, scale the longest side to `size` and pad to a square.
     Nothing is cropped, so the whole photo stays visible."""
-    image = ImageOps.exif_transpose(image).convert("RGB")
-    scale = size / max(image.size)
-    new_size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-    resized = image.resize(new_size, Image.Resampling.LANCZOS)
+    image = upright_rgb(image)
+    new_width, new_height, left, top = letterbox_geometry(image.size, size)
+    resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     canvas = Image.new("RGB", (size, size), FILL_RGB)
-    canvas.paste(resized, ((size - new_size[0]) // 2, (size - new_size[1]) // 2))
+    canvas.paste(resized, (left, top))
     return canvas
 
 

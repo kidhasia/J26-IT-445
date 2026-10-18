@@ -74,6 +74,16 @@ _PAGE = """<!doctype html>
   .warnbox { background:var(--warn-bg); border:1px solid var(--warn-line); border-radius:10px; padding:8px 14px; }
   .errbox { background:var(--err-bg); border:1px solid var(--err-line); border-radius:10px; padding:10px 14px; }
   ul { margin:6px 0 6px 18px; padding:0; }
+  .xai { border-top:1px solid var(--line); margin-top:14px; padding-top:12px; }
+  .xai h3 { margin:0 0 6px; font-size:1rem; }
+  .xai-label { background:#eef0ff; border:1px solid #b9bff0; border-radius:8px; padding:6px 12px; font-weight:600; font-size:.92rem; margin-bottom:10px; }
+  .xai-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:640px) { .xai-pair { grid-template-columns:1fr; } }
+  .xai-pair figure { margin:0; }
+  .xai-pair img { width:100%; border-radius:8px; border:1px solid var(--line); display:block; }
+  .xai-pair figcaption { color:var(--muted); font-size:.85rem; margin-top:3px; }
+  .legend { height:12px; border-radius:6px; margin:10px 0 2px; background:linear-gradient(90deg,#1d2cff,#19e0e0,#7bff4f,#ffe53a,#ff2a1a); }
+  .legend-text { display:flex; justify-content:space-between; color:var(--muted); font-size:.8rem; }
   details { margin-top:12px; }
   .inline { display:flex; align-items:center; gap:6px; font-weight:400; margin:6px 0 0; }
   .inline input { width:auto; }
@@ -116,6 +126,7 @@ _PAGE = """<!doctype html>
     <img id="preview" alt="Preview of the chosen file">
     <label for="question">3. Question (optional; questions are not answered yet)</label>
     <textarea id="question" maxlength="1000" placeholder="For example: What does this show?"></textarea>
+    <label class="inline" id="explainrow"><input type="checkbox" id="explain" checked> Also show the AI attention map (Grad-CAM) for skin photos</label>
     <label for="key">API key</label>
     <input id="key" type="password" value="__PREFILL_KEY__" placeholder="Paste your API key">
     <label class="inline"><input type="checkbox" id="showkey"> show key</label>
@@ -129,6 +140,7 @@ _PAGE = """<!doctype html>
 (function () {
   "use strict";
   var MAX_BYTES = 10 * 1024 * 1024;
+  var wantedExplain = false;  // whether the last request asked for an attention map
   var NAMES = { skin_image: "Skin photo", lab_report: "Lab report reading", chest_xray: "Chest X-ray" };
   var STATE_TEXT = { ready: "working", placeholder: "not built yet", unavailable: "model not set up" };
   function $(id) { return document.getElementById(id); }
@@ -160,6 +172,7 @@ _PAGE = """<!doctype html>
   function onTypeChange() {
     var type = $("type").value;
     $("file").accept = type === "lab_report" ? "image/png,image/jpeg,application/pdf" : "image/png,image/jpeg";
+    $("explainrow").style.display = type === "skin_image" ? "flex" : "none";
     $("filehint").textContent = type === "lab_report"
       ? "PNG or JPEG image (a PDF is accepted but not analysed yet), up to 10 MB."
       : "PNG or JPEG, up to 10 MB.";
@@ -208,6 +221,7 @@ _PAGE = """<!doctype html>
       bars.appendChild(row);
     });
     add(c, bars);
+    add(c, renderAttention(result.explanation_image));
     var m = result.model || {}, ev = m.evaluation || {};
     add(c, h("div", "sub", "Model: " + m.name + ", run " + m.run_id + ". Measured on a small held-out test set: macro-F1 " +
       ev.held_out_test_macro_f1 + " over " + ev.held_out_test_images + " images. That is not a clinical validation."));
@@ -216,6 +230,42 @@ _PAGE = """<!doctype html>
     var ul = h("ul"); (result.limitations || []).forEach(function (t) { ul.appendChild(h("li", null, t)); });
     add(lim, ul); add(c, lim);
     return c;
+  }
+
+  var BASE64_ONLY = new RegExp("^[A-Za-z0-9+/=]+$");
+  var FALLBACK_LABEL = "AI attention visualisation \u2014 not a diagnosis or proof of correctness.";
+
+  function renderAttention(img) {
+    var box = h("div", "xai");
+    if (!img) {
+      if (wantedExplain) add(box, h("div", "sub", "No attention map was produced for this photo (see the warnings below). The prediction above is unaffected."));
+      return box.childNodes.length ? box : document.createDocumentFragment();
+    }
+    // Server data is untrusted: only accept a JPEG made of base64 characters, and set it only as an image source.
+    if (img.mime_type !== "image/jpeg" || typeof img.image_base64 !== "string" || !BASE64_ONLY.test(img.image_base64)) {
+      add(box, h("div", "sub", "The attention map could not be displayed."));
+      return box;
+    }
+    add(box, h("h3", null, "Where the model looked"));
+    add(box, h("div", "xai-label", img.label || FALLBACK_LABEL));
+    var pair = h("div", "xai-pair");
+    var left = h("figure"), right = h("figure");
+    var original = h("img"), overlay = h("img");
+    original.alt = "The photo you uploaded";
+    overlay.alt = "The same photo with the attention map drawn on it";
+    original.src = $("preview").dataset.url || "";
+    overlay.src = "data:image/jpeg;base64," + img.image_base64;
+    add(left, original, h("figcaption", null, "Your photo"));
+    add(right, overlay, h("figcaption", null, "Attention map for " + img.target_class_name + " (" + img.target_class + ")"));
+    add(pair, left, right); add(box, pair);
+    add(box, h("div", "legend"));
+    var scale = h("div", "legend-text"); add(scale, h("span", null, "little influence"), h("span", null, "most influence"));
+    add(box, scale);
+    add(box, h("div", "sub", img.how_to_read + " Map detail: " + img.map_cells[0] + " by " + img.map_cells[1] + " cells."));
+    var lim = h("details"); add(lim, h("summary", null, "What this map can and cannot tell you"));
+    var ul = h("ul"); (img.limitations || []).forEach(function (x) { ul.appendChild(h("li", null, x)); });
+    add(lim, ul); add(box, lim);
+    return box;
   }
 
   function renderOcr(result) {
@@ -278,6 +328,8 @@ _PAGE = """<!doctype html>
     var form = new FormData();
     form.append("input_type", type); form.append("file", file);
     var q = $("question").value.trim(); if (q) form.append("question", q);
+    wantedExplain = type === "skin_image" && $("explain").checked;
+    if (wantedExplain) form.append("explain", "true");
     var button = $("go"); button.disabled = true; button.textContent = "Analyzing...";
     fetch("/api/v1/analyze", { method: "POST", headers: { "Authorization": "Bearer " + key }, body: form })
       .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })

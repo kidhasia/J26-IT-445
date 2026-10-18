@@ -73,7 +73,7 @@ Reading it: the model is clearly better than guessing, but it is wrong for rough
 - Few melanoma images (11 in test), so melanoma results are essentially unknown; the same caution applies to every per-class figure.
 - Labels: about 58% biopsy-proven, the rest clinical diagnosis; label noise is possible. 12 duplicate pairs had conflicting labels and were excluded.
 - One training run and one split; no repeated runs, no hyperparameter search, no external test set.
-- No explanation of which image regions drive a score (Grad-CAM not implemented).
+- Attention maps (Grad-CAM, optional) are coarse and describe the model, not the lesion; see §9 for what they do and do not show.
 - MPS training is not bit-for-bit reproducible even with a fixed seed.
 - The ImageNet-pretrained starting weights have an unresolved licence question for commercial use (governance §5.3).
 - The model has had no clinical review.
@@ -87,5 +87,28 @@ Out of scope: diagnosis, triage, screening, any use with real patients, any clai
 .venv/bin/python -m lumi.ml.train_skin --metadata data/raw/PAD-UFES-20/metadata.csv --images data/raw/PAD-UFES-20/images --out-dir models/skin_pad_ufes20
 .venv/bin/python scripts/check_api_matches_training.py models/skin_pad_ufes20/<run id> data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
 .venv/bin/python scripts/bootstrap_test_ci.py models/skin_pad_ufes20/<run id> data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
+.venv/bin/python scripts/check_gradcam_faithfulness.py models/skin_pad_ufes20/<run id> data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
 ```
 A new training run will give slightly different numbers (GPU non-determinism); the numbers above belong to run `20261018T072750Z`.
+
+## 9. Attention maps (Grad-CAM), added 2026-10-18
+**What it is.** Send `explain=true` with a skin photo and the response also contains `result.explanation_image`: the user's own photo with a Grad-CAM heatmap drawn on it (JPEG, at most 512 px on the longest side, about 40 KB), plus `xai_reference` (for example `grad_cam:bn2:ACK`). It is off by default so small devices are not sent extra data. The demo page shows it beside the original photo under the label **"AI attention visualisation — not a diagnosis or proof of correctness."**
+
+**How it works.** For the model's chosen class, Grad-CAM weights each channel of the last feature map (`bn2`, 1,280 channels) by the average gradient of that class's score, adds them up, keeps only positive evidence and enlarges the result. The map is **8 by 8 cells** for a 256 px input, so it shows broad areas, not outlines. The padding the model sees around non-square photos is cut away so the map lines up with the photo. The probabilities and the map come from the same forward pass, so the map always belongs to the reported prediction (checked: identical probabilities with and without `explain`).
+
+**Checks that it comes from the real model** (`scripts/check_gradcam_faithfulness.py`, all 455 held-out test images, run on 2026-10-18; these are sanity checks, not clinical validation):
+| Check | Result |
+|---|---|
+| Implementation vs an independent formula (this model's head is average-pool + one linear layer, so Grad-CAM must equal the classic Class Activation Map) | Matches to 0.0001 in an automated test; the measured gradient weights equal the classifier weights / 64 to within 1e-9 |
+| Deletion test: blank the highlighted 20% of the image (13 of 64 cells) | The predicted class's probability fell by **0.435** on average, versus **0.118** when 13 random cells were blanked. Difference **+0.317** (95% interval +0.289 to +0.347, patient-level bootstrap). Highlighted cells mattered more in **81.5%** of images, and the predicted class changed in 57.4% |
+| Randomisation test: correlation with the map from a fully random-weight copy of the model | **+0.05** on 150 images (essentially unrelated, so the maps depend on what was learned) |
+| Same test with only the final classifier re-randomised | +0.05 on 150 images |
+| Breaking the maths on purpose (ignoring gradients; not cropping the padding) | Automated tests failed in both cases, so they would catch such mistakes |
+
+**What this does NOT show.**
+- It shows what influenced *this model*, not what is medically important. Highlighted areas can be skin texture, image borders, lighting or other artefacts. In the one example inspected by eye, hot spots were broad and did not clearly sit on a single lesion; no conclusion should be drawn from one picture.
+- A clear-looking map does not show the prediction is right; an odd one does not show it is wrong. The model is still wrong on about 1 photo in 3.
+- The deletion test uses grey blocks, which are unusual inputs, and compares with random blocks of the same area; it supports faithfulness to the model, nothing more.
+- **No clinician has judged whether the maps are useful** (the proposal's "explanation usefulness score" is still not done; it needs a domain reviewer, scope review C10).
+- Only the single top class is explained. Only the skin model has maps; lab-report OCR returns evidence lines instead; chest X-ray has nothing.
+- If a map cannot be made (unsupported model, no positive evidence, any internal error) the API still returns the prediction with a warning (`EXPLANATION_UNSUPPORTED`, `EXPLANATION_EMPTY` or `EXPLANATION_FAILED`) and never an invented picture.

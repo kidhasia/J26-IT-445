@@ -5,7 +5,7 @@ Research prototype for **decision support only**. It does not diagnose and does 
 Current state (see the status table below for exactly what is real):
 API with validation, API-key auth, rate limiting and privacy-safe logging; lab-report OCR on PNG/JPEG images (local Tesseract);
 a skin-lesion classifier fine-tuned on the public PAD-UFES-20 dataset (6 classes, adults almost exclusively).
-Chest X-ray, medical VQA and explainability are **not implemented**. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray and medical VQA are **not implemented**. Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
 
 
 ## What works today
@@ -16,7 +16,8 @@ Chest X-ray, medical VQA and explainability are **not implemented**. Scope and o
 | Lab-report OCR (`input_type=lab_report`, PNG/JPEG) | Working on **synthetic** reports; PDFs and real reports not done; accuracy not yet measured (CER/WER pending) |
 | Skin-lesion classifier (`input_type=skin_image`) | Working **when a trained checkpoint is configured**; otherwise the endpoint answers `503 model_unavailable` and never invents a prediction. Research prototype, not clinically validated (see `models/` run metrics and `docs/DATA_GOVERNANCE.md` §5) |
 | Chest X-ray (`input_type=chest_xray`) | **Placeholder only**: returns `status: not_implemented`, no prediction |
-| Medical VQA, explainability (Grad-CAM) | Not started. Questions are accepted but not answered |
+| Attention map for skin photos (Grad-CAM, send `explain=true`) | Working and tested. Coarse (8 by 8 cells). Passed a deletion test and a randomisation test on the held-out images (model card §9). It describes the model, **not** the lesion, and has not been reviewed by clinicians |
+| Medical VQA | Not started. Questions are accepted but not answered |
 
 **Results, limits and how to demonstrate it:** `docs/MODEL_CARD_skin_pad_ufes20.md` (real test results and limitations),
 `docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/SCOPE_REVIEW.md` (traceability and progress),
@@ -52,12 +53,14 @@ export LUMI_SKIN_MODEL_PATH="$PWD/models/skin_pad_ufes20/<run id>/checkpoint.pt"
 ./scripts/run_dev.sh
 ```
 
-Check that the API reproduces the offline test evaluation, and measure the uncertainty of the test numbers (both print aggregates only):
+Check that the API reproduces the offline test evaluation, measure the uncertainty of the test numbers, and sanity-check the attention maps (all print aggregates only):
 
 ```bash
 .venv/bin/python scripts/check_api_matches_training.py models/skin_pad_ufes20/<run id> \
     data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
 .venv/bin/python scripts/bootstrap_test_ci.py models/skin_pad_ufes20/<run id> \
+    data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
+.venv/bin/python scripts/check_gradcam_faithfulness.py models/skin_pad_ufes20/<run id> \
     data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
 ```
 
@@ -119,7 +122,7 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | Liveness check |
-| `POST /api/v1/analyze` | `Authorization: Bearer <key>` | Multipart: `input_type` (`skin_image` \| `chest_xray` \| `lab_report`), `file`, optional `question`, optional `metadata` (JSON with only `client_platform`, `client_version`, `locale`) |
+| `POST /api/v1/analyze` | `Authorization: Bearer <key>` | Multipart: `input_type` (`skin_image` \| `chest_xray` \| `lab_report`), `file`, optional `question`, optional `metadata` (JSON with only `client_platform`, `client_version`, `locale`), optional `explain` (`true` adds a Grad-CAM attention map to skin results; off by default) |
 
 | Status | `error.code` | Meaning |
 |---|---|---|

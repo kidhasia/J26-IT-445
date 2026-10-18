@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 
 from lumi.config import CLINICAL_BOUNDARY_NOTICE, Settings
 from lumi.logging_config import logger
@@ -35,9 +36,16 @@ class AnalysisService:
         file: ValidatedFile,
         question: str | None,
         metadata: RequestMetadata | None,
+        explain: bool = False,
     ) -> AnalyzeResponse:
         # metadata is accepted for future audit logging; it is not used by any pipeline.
-        output = self.pipeline_for(input_type).run(file, question)
+        pipeline = self.pipeline_for(input_type)
+        if explain and getattr(pipeline, "supports_explanation", False):
+            output = pipeline.run(file, question, explain=True)
+        else:
+            output = pipeline.run(file, question)
+            if explain:
+                output = replace(output, warnings=[*output.warnings, EXPLANATION_NOT_AVAILABLE_WARNING])
         return AnalyzeResponse(
             request_id=request_id,
             input_type=input_type,
@@ -51,6 +59,10 @@ class AnalysisService:
         )
 
 
+EXPLANATION_NOT_AVAILABLE_WARNING = (
+    "EXPLANATION_NOT_AVAILABLE: attention maps exist only for skin photos analysed by the trained model; "
+    "none was made for this input."
+)
 SKIN_NOT_CONFIGURED = (
     "The skin-lesion model is not set up on this server (LUMI_SKIN_MODEL_PATH is not set), so no analysis was performed."
 )

@@ -33,6 +33,7 @@ def log_analyze(
     mime_type: str | None = None,
     file_bytes: int | None = None,
     has_question: bool | None = None,
+    explain: bool | None = None,
 ) -> None:
     record = {
         "event": "analyze",
@@ -44,6 +45,7 @@ def log_analyze(
         "mime_type": mime_type,
         "file_bytes": file_bytes,
         "has_question": has_question,
+        "explain_requested": explain,
         "latency_ms": round((time.perf_counter() - started) * 1000, 1),
     }
     logger.info(json.dumps(record))
