@@ -108,7 +108,7 @@ class Browser:
     def goto(self, url: str) -> None:
         self.send("Page.navigate", url=url)
         self.wait("document.readyState === 'complete'")
-        self.wait("document.querySelectorAll('[data-nav]').length === 5")
+        self.wait("document.querySelectorAll('[data-nav]').length === 6")
         time.sleep(0.4)
 
     def viewport(self, width: int, height: int = 900, mobile: bool = False) -> None:
@@ -162,12 +162,12 @@ def main() -> int:
         check("opening / lands on the demo page", b.js("location.pathname") == "/demo", b.js("location.pathname"))
         check("overview is the first page and the others are hidden", b.js("!document.getElementById('page-overview').hidden && ['skin','lab','xray','about'].every(p => document.getElementById('page-'+p).hidden)"))
         labels = b.js("Array.from(document.querySelectorAll('[data-nav]')).map(a => a.innerText.replace(/\\s+/g,' ').trim())")
-        check("navigation has the five required entries", [x.split(" In development")[0] for x in labels] == ["Overview", "Skin Analysis", "Lab Reports", "Chest X-ray", "About LUMI"], str(labels))
+        check("navigation has the six required entries", [x.split(" In development")[0] for x in labels] == ["Overview", "Skin Analysis", "Lab Reports", "Ask a question", "Chest X-ray", "About LUMI"], str(labels))
         b.wait("document.getElementById('server-pill').textContent.includes('connected')")
         check("server status shows connected", "connected" in text(b, "#server-pill"), text(b, "#server-pill"))
         badges = b.js("Array.from(document.querySelectorAll('[data-status-for]')).map(n => n.textContent)")
         check("overview shows real tool status from the server", badges == ["Working · research prototype", "Working · synthetic reports"], str(badges))
-        check("overview says the chest X-ray is in development and questions are API only", "In development" in text(b, "#page-overview") and "API only" in text(b, "#page-overview"))
+        check("overview says the chest X-ray is in development and questions are a small prototype", "In development" in text(b, "#page-overview") and "Small prototype" in text(b, "#page-overview"))
         b.shot(out, "01_overview_desktop")
 
         for page, heading in (("skin", "Skin photo analysis"), ("lab", "Lab report reading"), ("xray", "Chest X-ray analysis"), ("about", "About LUMI")):
@@ -234,6 +234,37 @@ def main() -> int:
         b.wait("document.querySelectorAll('#lab-result .badge.warn').length > 0", 40)
         check("a missing value is clearly labelled 'Not found'", "Not found" in text(b, "#lab-result tbody") and "Check against the original" in text(b, "#lab-result tbody"))
         b.shot(out, "06_lab_missing_desktop")
+
+        print("ASK A QUESTION (uses the results produced above)")
+        b.js("location.hash = '#ask'")
+        time.sleep(0.4)
+        check("both results are offered as sources", b.js("!document.getElementById('ask-src-skin').disabled && !document.getElementById('ask-src-lab').disabled"))
+        check("example questions are shown", b.js("document.querySelectorAll('#ask-examples .chip').length") >= 3)
+
+        def ask_question(source, question):
+            b.js(f"document.getElementById('ask-src-{source}').click()")
+            b.js(f"document.getElementById('ask-question').value = {json.dumps(question)}")
+            b.js("document.getElementById('ask-result').textContent = ''")  # so an old answer cannot be mistaken for the new one
+            b.click("#ask-go")
+            return b.wait("!!(document.querySelector('#ask-result .answer-text') || document.querySelector('#ask-result .callout.err'))", 20)
+
+        check("a lab question is answered from the evidence", ask_question("lab", "Which lab values were not found?") and "Haemoglobin" in text(b, "#ask-result .answer-text"), text(b, "#ask-result"))
+        check("the evidence-not-verified warning is shown", "genuine or unchanged" in text(b, "#ask-result"))
+        check("the clinical boundary is shown with the answer", "Clinical boundary" in text(b, "#ask-result") or "decision support" in text(b, "#ask-result"))
+        b.shot(out, "06b_ask_answer_desktop")
+        check("a skin question is answered from the evidence", ask_question("skin", "What was the predicted skin class?") and "model's own relative score" in text(b, "#ask-result .answer-text"), text(b, "#ask-result"))
+        check("a diagnosis question is refused with the exact sentence", ask_question("skin", "Is this cancer?") and text(b, "#ask-result .answer-text") == "I cannot answer this from the available evidence.", text(b, "#ask-result .answer-text"))
+        check("a question about a test that is not on the report is refused", ask_question("lab", "What was the creatinine value?") and text(b, "#ask-result .answer-text") == "I cannot answer this from the available evidence.")
+        b.js("document.getElementById('ask-question').value = ''")
+        b.click("#ask-go")
+        check("an empty question shows a message and sends nothing", b.js("!document.getElementById('ask-error').hidden"))
+        b.js("document.getElementById('key-input').value = 'wrong-key-0000000000'; document.getElementById('key-input').dispatchEvent(new Event('input'))")
+        b.js("document.getElementById('ask-question').value = 'What limitations apply?'")
+        b.js("document.getElementById('ask-result').textContent = ''")
+        b.click("#ask-go")
+        check("a wrong API key shows the key hint on this page too", b.wait("!!document.querySelector('#ask-result .callout.err')", 10) and "API key" in text(b, "#ask-result"))
+        b.js("location.reload()")
+        time.sleep(1.5)
 
         print("ERROR HANDLING")
         b.js("location.hash = '#skin'")
@@ -322,7 +353,7 @@ def main() -> int:
         print("RESPONSIVE LAYOUT (no sideways scrolling)")
         for width, height, mobile in ((1440, 900, False), (1024, 800, False), (768, 1000, False), (390, 844, True)):
             b.viewport(width, height, mobile)
-            for page in ("overview", "skin", "lab", "xray", "about"):
+            for page in ("overview", "skin", "lab", "ask", "xray", "about"):
                 b.js(f"location.hash = '#{page}'")
                 time.sleep(0.25)
                 overflow = b.js("document.documentElement.scrollWidth - document.documentElement.clientWidth")
