@@ -143,13 +143,20 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
 
     @app.get("/health")
     def health() -> dict:
-        # pipelines: per input type, "ready", "placeholder" (no real analysis) or "unavailable" (model not set up)
-        return {"status": "ok", "service": "lumi", "version": __version__, "pipelines": service.statuses()}
+        # pipelines: per input type, "ready", "placeholder" (no real analysis) or "unavailable" (model not set up).
+        # models: facts about any trained model that is loaded (name, training run, held-out score), for the About page.
+        return {
+            "status": "ok",
+            "service": "lumi",
+            "version": __version__,
+            "pipelines": service.statuses(),
+            "models": service.model_summaries(),
+        }
 
     if settings.demo_ui:
-        from fastapi.responses import HTMLResponse, RedirectResponse
+        from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
-        from lumi.demo_ui import DEMO_PAGE_HEADERS, render_demo_page
+        from lumi.demo_ui import ASSET_HEADERS, DEMO_PAGE_HEADERS, read_asset, render_demo_page
 
         @app.get("/", include_in_schema=False)
         def root() -> RedirectResponse:
@@ -158,6 +165,14 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         @app.get("/demo", include_in_schema=False)
         def demo() -> HTMLResponse:
             return HTMLResponse(render_demo_page(settings.demo_ui_key), headers=DEMO_PAGE_HEADERS)
+
+        @app.get("/demo/assets/{name}", include_in_schema=False)
+        def demo_asset(name: str) -> Response:
+            asset = read_asset(name)  # only allow-listed file names; anything else is a plain 404
+            if asset is None:
+                return Response("Not found", status_code=404, media_type="text/plain")
+            content, media_type = asset
+            return Response(content, media_type=media_type, headers=ASSET_HEADERS)
 
     @app.post("/api/v1/analyze", response_model=AnalyzeResponse)
     async def analyze(

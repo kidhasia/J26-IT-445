@@ -20,16 +20,19 @@ Skin results can optionally include a Grad-CAM attention map (a coarse picture o
 | Medical VQA | Not started. Questions are accepted but not answered |
 
 **Results, limits and how to demonstrate it:** `docs/MODEL_CARD_skin_pad_ufes20.md` (real test results and limitations),
-`docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/SCOPE_REVIEW.md` (traceability and progress),
+`docs/DEMO_GUIDE.md` (step-by-step demo for your supervisor), `docs/CHEST_XRAY_PLAN.md` (chest X-ray research, approval gate and pilot plan; nothing downloaded), `docs/SCOPE_REVIEW.md` (traceability and progress),
 `docs/DATA_GOVERNANCE.md` (datasets, licences, what is verified and what is pending).
 The skin model is a research prototype: not clinically validated, and not shown to be reliable for children.
 
 ## Start the demo page (easiest way)
 
 Double-click `scripts/start_demo.command` in Finder, or run `./scripts/run_dev.sh` in a terminal, then open **http://localhost:8000/**.
-The page shows what is working, lets you upload a practice file, and explains the result in plain language.
+The interface has five pages (Overview, Skin Analysis, Lab Reports, Chest X-ray, About LUMI). It shows what is really working, lets you drop in a practice file, and explains the result in plain language. The Chest X-ray page is deliberately an "In development" page with no upload, because no chest X-ray model exists yet.
 The developer page is at http://localhost:8000/docs. The demo page is off unless `LUMI_DEMO_UI=1` (the start script sets it),
 so a real deployment serves only the API.
+
+The interface is plain HTML, CSS and JavaScript in `lumi/demo_ui/` (no framework, no external files, no inline code, strict Content-Security-Policy).
+To test it in a real browser (needs Google Chrome): `.venv/bin/python scripts/ui_smoke_test.py --skin-image PATH_TO_A_PNG --lab-image data/synthetic/lab_reports/syn_0001_complete.png`.
 
 ## Train the skin-lesion model (needs the PAD-UFES-20 data under `data/raw/`)
 

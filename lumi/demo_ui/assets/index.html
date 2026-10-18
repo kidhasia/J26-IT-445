@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<title>LUMI</title>
+<link rel="icon" type="image/svg+xml" href="/demo/assets/favicon.svg">
+<link rel="stylesheet" href="/demo/assets/app.css">
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="currentColor" stroke="none"/><path d="M11.5 8.5v12.5h9.5" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-overview" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-skin" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17.5l5-4.5 3.5 3 2.5-2 5 4"/></symbol>
+  <symbol id="i-lab" viewBox="0 0 24 24"><path d="M7 3.5h6.5l5 5V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M13.5 3.5v5h5"/><path d="M9 13h6M9 16.5h6"/></symbol>
+  <symbol id="i-xray" viewBox="0 0 24 24"><path d="M12 3.5v7"/><path d="M12 8.5c-2.8 0-5.5 3.2-5.5 7.2 0 2 .9 3.3 2.7 3.3 1.8 0 2.8-1.2 2.8-3.2"/><path d="M12 8.5c2.8 0 5.5 3.2 5.5 7.2 0 2-.9 3.3-2.7 3.3-1.8 0-2.8-1.2-2.8-3.2"/></symbol>
+  <symbol id="i-about" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.2"/><path d="M12 7.8h.01"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.5v-11"/><path d="M7.5 9L12 4.5 16.5 9"/><path d="M4.5 15.5v3A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-3"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.5"/><path d="M10.5 12.5l9-9"/><path d="M16 7l2.5 2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5"/><path d="M12 17.5h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.2"/><path d="M12 7.8h.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-pending" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></symbol>
+</svg>
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="LUMI, go to Overview">
+      <svg class="brand-mark" aria-hidden="true"><use href="#i-logo"/></svg>
+      <span class="brand-text"><span class="brand-name">LUMI</span><span class="brand-sub">Research prototype</span></span>
+    </a>
+    <nav aria-label="Main">
+      <ul class="nav">
+        <li><a href="#overview" data-nav="overview"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span>Overview</span></a></li>
+        <li><a href="#skin" data-nav="skin"><svg class="icon" aria-hidden="true"><use href="#i-skin"/></svg><span>Skin Analysis</span></a></li>
+        <li><a href="#lab" data-nav="lab"><svg class="icon" aria-hidden="true"><use href="#i-lab"/></svg><span>Lab Reports</span></a></li>
+        <li><a href="#xray" data-nav="xray"><svg class="icon" aria-hidden="true"><use href="#i-xray"/></svg><span class="nav-text"><span>Chest X-ray</span><span class="nav-tag">In development</span></span></a></li>
+        <li><a href="#about" data-nav="about"><svg class="icon" aria-hidden="true"><use href="#i-about"/></svg><span>About LUMI</span></a></li>
+      </ul>
+    </nav>
+    <p class="side-foot">Decision support for research only. It does not diagnose and does not replace a licensed clinician.</p>
+  </aside>
+
+  <div class="content">
+    <div class="notice-bar" role="note">Research prototype &middot; not a medical device &middot; not for clinical use. Upload only public practice photos and synthetic reports, never a real patient's file.</div>
+
+    <div class="topbar">
+      <span class="badge neutral" id="server-pill" role="status">Checking server&hellip;</span>
+      <div class="key-wrap">
+        <button type="button" class="btn secondary" id="key-toggle" aria-expanded="false" aria-controls="key-panel">
+          <svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>
+          <span>API key</span>
+          <span class="badge neutral" id="key-state">needed</span>
+        </button>
+        <div class="popover" id="key-panel" hidden>
+          <label for="key-input" class="field-label">API key</label>
+          <input id="key-input" class="text-input" type="password" autocomplete="off" spellcheck="false" value="__PREFILL_KEY__" placeholder="Paste the key printed in the terminal">
+          <label class="check-row"><input type="checkbox" id="key-show"> Show key</label>
+          <p class="help">The key stays in this browser tab and is sent only to this server. LUMI does not save it.</p>
+          <p class="field-error" id="key-message" role="alert" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <main id="main" tabindex="-1">
+
+      <!-- ============================ OVERVIEW ============================ -->
+      <section class="page" id="page-overview" aria-labelledby="h-overview" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Overview</p>
+          <h1 id="h-overview" tabindex="-1">LUMI</h1>
+          <p class="lead">A research prototype that reads medical images and reports and explains what it found. It is built for a final-year project on pediatric healthcare decision support, and it supports clinicians rather than replacing them.</p>
+        </header>
+
+        <div class="callout warn"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><div><strong>Not for clinical use.</strong> The skin model has not been clinically validated and has not been shown to be reliable for children.</div></div>
+
+        <h2 class="section-title">Tools and their real status</h2>
+        <div class="tool-grid">
+          <article class="card tool">
+            <div class="tool-head"><svg class="icon" aria-hidden="true"><use href="#i-skin"/></svg><h3>Skin Analysis</h3></div>
+            <p>Scores a skin photo against six lesion classes and can show an experimental attention map.</p>
+            <p><span class="badge neutral" data-status-for="skin_image">Checking&hellip;</span></p>
+            <a class="btn secondary" href="#skin">Open <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+          </article>
+          <article class="card tool">
+            <div class="tool-head"><svg class="icon" aria-hidden="true"><use href="#i-lab"/></svg><h3>Lab Reports</h3></div>
+            <p>Reads text from a report image and lists result rows. It does not interpret results. PDFs are not supported yet.</p>
+            <p><span class="badge neutral" data-status-for="lab_report">Checking&hellip;</span></p>
+            <a class="btn secondary" href="#lab">Open <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+          </article>
+          <article class="card tool">
+            <div class="tool-head"><svg class="icon" aria-hidden="true"><use href="#i-xray"/></svg><h3>Chest X-ray</h3></div>
+            <p>No chest X-ray model exists yet, so nothing can be analysed here.</p>
+            <p><span class="badge info">In development</span></p>
+            <a class="btn secondary" href="#xray">See status <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+          </article>
+          <article class="card tool">
+            <div class="tool-head"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><h3>Medical questions</h3></div>
+            <p>Answering questions about an image or report is planned but not built. Questions are not accepted in this interface.</p>
+            <p><span class="badge neutral">Not started</span></p>
+          </article>
+        </div>
+
+        <div class="card next-step">
+          <h2>Suggested next step</h2>
+          <p>Open <strong>Skin Analysis</strong> and choose a photo from the public PAD-UFES-20 dataset (the folder <code>data/raw/PAD-UFES-20/images</code>), keeping the attention map switched on. Or open <strong>Lab Reports</strong> and choose <code>data/synthetic/lab_reports/syn_0001_complete.png</code>.</p>
+          <a class="btn primary" href="#skin">Start with Skin Analysis <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        </div>
+      </section>
+
+      <!-- ============================ SKIN ============================ -->
+      <section class="page" id="page-skin" aria-labelledby="h-skin" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Skin Analysis</p>
+          <h1 id="h-skin" tabindex="-1">Skin photo analysis</h1>
+          <p class="lead">A neural network trained on a public dataset scores your photo against six lesion classes. For research demonstration only.</p>
+        </header>
+        <div class="two-col">
+          <div class="card">
+            <h2>1. Choose a photo</h2>
+            <label class="dropzone" id="skin-drop" for="skin-file">
+              <svg class="icon icon-lg" aria-hidden="true"><use href="#i-upload"/></svg>
+              <span class="dz-title">Drop a photo here, or <span class="link-like">browse</span></span>
+              <span class="dz-help" id="skin-help">PNG or JPEG &middot; up to 10 MB</span>
+              <input class="visually-hidden" type="file" id="skin-file" accept="image/png,image/jpeg" aria-describedby="skin-help skin-error">
+            </label>
+            <div class="file-card" id="skin-filecard" hidden>
+              <img id="skin-preview" class="thumb" alt="Preview of the selected photo">
+              <div class="file-meta"><div class="file-name" id="skin-filename"></div><div class="file-sub" id="skin-filesub"></div></div>
+              <button type="button" class="btn ghost" id="skin-clear">Remove</button>
+            </div>
+            <p class="field-error" id="skin-error" role="alert" hidden></p>
+
+            <h2 class="spaced">2. Options</h2>
+            <label class="switch">
+              <input type="checkbox" id="skin-explain" checked>
+              <span class="track" aria-hidden="true"></span>
+              <span class="switch-text"><span class="switch-title">Show attention map (Grad-CAM)</span><span class="switch-help">Experimental. Shows which areas influenced the model. Not a diagnosis.</span></span>
+            </label>
+
+            <button type="button" class="btn primary block" id="skin-go">Analyze photo</button>
+          </div>
+
+          <div id="skin-result" class="result-area" aria-live="polite" tabindex="-1">
+            <div class="empty-state"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-skin"/></svg><h2>Results will appear here</h2><p>Choose a photo and select <strong>Analyze photo</strong>. You will see the highest-scoring class, all six class scores, and, if switched on, the attention map.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ LAB ============================ -->
+      <section class="page" id="page-lab" aria-labelledby="h-lab" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Lab Reports</p>
+          <h1 id="h-lab" tabindex="-1">Lab report reading</h1>
+          <p class="lead">Reads the text in a report image on this computer and lists the result rows it can recognise. It copies values as printed and does not say whether any result is normal.</p>
+        </header>
+        <div class="two-col">
+          <div class="card">
+            <h2>1. Choose a report image</h2>
+            <label class="dropzone" id="lab-drop" for="lab-file">
+              <svg class="icon icon-lg" aria-hidden="true"><use href="#i-upload"/></svg>
+              <span class="dz-title">Drop a report image here, or <span class="link-like">browse</span></span>
+              <span class="dz-help" id="lab-help">PNG or JPEG &middot; up to 10 MB &middot; PDF is not supported yet</span>
+              <input class="visually-hidden" type="file" id="lab-file" accept="image/png,image/jpeg" aria-describedby="lab-help lab-error">
+            </label>
+            <div class="file-card" id="lab-filecard" hidden>
+              <img id="lab-preview" class="thumb" alt="Preview of the selected report">
+              <div class="file-meta"><div class="file-name" id="lab-filename"></div><div class="file-sub" id="lab-filesub"></div></div>
+              <button type="button" class="btn ghost" id="lab-clear">Remove</button>
+            </div>
+            <p class="field-error" id="lab-error" role="alert" hidden></p>
+            <div class="callout info compact"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div>Use only synthetic practice reports. Text recognition accuracy has not been measured yet.</div></div>
+            <button type="button" class="btn primary block" id="lab-go">Read report</button>
+          </div>
+
+          <div id="lab-result" class="result-area" aria-live="polite" tabindex="-1">
+            <div class="empty-state"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-lab"/></svg><h2>Results will appear here</h2><p>Choose a report image and select <strong>Read report</strong>. You will see a table of test, result, unit and reference range, with anything missing clearly marked.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ CHEST X-RAY ============================ -->
+      <section class="page" id="page-xray" aria-labelledby="h-xray" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Chest X-ray</p>
+          <h1 id="h-xray" tabindex="-1">Chest X-ray analysis <span class="badge info">In development</span></h1>
+          <p class="lead">This tool is not available yet. LUMI has no chest X-ray model, so this page cannot analyse images and makes no predictions.</p>
+        </header>
+        <div class="callout info"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div>There is deliberately no upload control here. A placeholder endpoint exists in the API, but it returns a message saying nothing was analysed and never returns a finding.</div></div>
+        <div class="card roadmap">
+          <h2>What has to happen first</h2>
+          <ol class="steps">
+            <li><svg class="icon step-icon pending" aria-hidden="true"><use href="#i-pending"/></svg><div><strong>Review the dataset terms.</strong><span>Read the official NIH terms and get supervisor approval. Not done yet.</span></div></li>
+            <li><svg class="icon step-icon pending" aria-hidden="true"><use href="#i-pending"/></svg><div><strong>Choose a small pilot subset.</strong><span>With a patient-level train, validation and test split. Not started.</span></div></li>
+            <li><svg class="icon step-icon pending" aria-hidden="true"><use href="#i-pending"/></svg><div><strong>Train and evaluate a first model.</strong><span>With honest metrics and uncertainty. Not started.</span></div></li>
+            <li><svg class="icon step-icon pending" aria-hidden="true"><use href="#i-pending"/></svg><div><strong>Add it to the API and this interface.</strong><span>With an attention map and clear limitations. Not started.</span></div></li>
+          </ol>
+          <p class="help">The written plan is in <code>docs/CHEST_XRAY_PLAN.md</code>.</p>
+        </div>
+      </section>
+
+      <!-- ============================ ABOUT ============================ -->
+      <section class="page" id="page-about" aria-labelledby="h-about" hidden>
+        <header class="page-head">
+          <p class="eyebrow">About LUMI</p>
+          <h1 id="h-about" tabindex="-1">About LUMI and its limits</h1>
+          <p class="lead">What this prototype does today, what it was trained on, and what it cannot tell you.</p>
+        </header>
+
+        <div class="card">
+          <h2>What works today</h2>
+          <div class="table-wrap"><table>
+            <thead><tr><th scope="col">Part</th><th scope="col">Status</th><th scope="col">Notes</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Skin photo scoring</th><td><span class="badge ok">Working</span></td><td>Six classes. Research prototype with limited accuracy.</td></tr>
+              <tr><th scope="row">Attention map (Grad-CAM)</th><td><span class="badge warn">Experimental</span></td><td>Skin photos only. Coarse, and not reviewed by clinicians.</td></tr>
+              <tr><th scope="row">Lab report reading</th><td><span class="badge warn">Synthetic only</span></td><td>Images only. Accuracy not measured. No interpretation of results.</td></tr>
+              <tr><th scope="row">PDF lab reports</th><td><span class="badge neutral">Not supported</span></td><td>Accepted by the API but not analysed.</td></tr>
+              <tr><th scope="row">Chest X-ray analysis</th><td><span class="badge info">In development</span></td><td>No model yet.</td></tr>
+              <tr><th scope="row">Medical questions</th><td><span class="badge neutral">Not started</span></td><td>Planned, not built.</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div class="card">
+          <h2>The skin model and its data</h2>
+          <dl class="kv" id="about-model"><div><dt>Model</dt><dd>Loading&hellip;</dd></div></dl>
+          <p>It was trained on <strong>PAD-UFES-20</strong>, a public dataset of 2,298 smartphone skin photos from one program in Brazil (licence CC BY 4.0, Mendeley Data, doi:10.17632/zr7vgbcyr2.1).</p>
+          <p class="help">The model's score is the average over six classes and is measured on a small held-out set. It is not a clinical validation. The model card in <code>docs/MODEL_CARD_skin_pad_ufes20.md</code> has the full per-class results.</p>
+        </div>
+
+        <div class="card">
+          <h2>Limitations you should know</h2>
+          <ul class="plain-list">
+            <li><strong>Not clinically validated.</strong> No clinician has reviewed its results, and it is not a medical device.</li>
+            <li><strong>Not validated for children.</strong> Almost all patients in the training data are adults. Only 39 of the 2,298 photos come from patients under 18, and all of those show benign nevus. There is no pediatric data for the other five classes.</li>
+            <li><strong>Six classes only.</strong> Any photo, including one of another condition or of something that is not skin, is still assigned to one of the six.</li>
+            <li><strong>Limited accuracy.</strong> It is wrong on roughly one photo in three, and it confuses several classes. Only 11 melanoma photos were in the test set, so melanoma performance is essentially unknown.</li>
+            <li><strong>Scores are not probabilities of being right.</strong> They are the model's own relative scores across its six classes. A high score can still be wrong.</li>
+            <li><strong>Small, single-source data.</strong> Other phones, lighting, skin tones, body sites and populations were not tested.</li>
+            <li><strong>Lab reports:</strong> only synthetic reports have been tried, accuracy has not been measured, and extracted values must be checked against the original.</li>
+          </ul>
+          <p class="help">These figures describe the current dataset and trained model. See the model card for the exact run they belong to.</p>
+        </div>
+
+        <div class="card">
+          <h2>About the attention map</h2>
+          <p>The attention map (Grad-CAM) colours the parts of a photo that most raised the model's score for the class it chose. Warmer colours mean more influence.</p>
+          <ul class="plain-list">
+            <li>It shows what influenced <em>the model</em>, not what is medically important.</li>
+            <li>It is coarse: the model looks at an 8 by 8 grid, so the map shows broad areas, not outlines.</li>
+            <li>A map that looks sensible does not show the prediction is right, and an odd one does not show it is wrong.</li>
+            <li>It explains only the top-scoring class and is not a diagnosis or proof of correctness.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2>Privacy and security</h2>
+          <ul class="plain-list">
+            <li>Uploaded files are analysed in memory on the computer running LUMI and are not saved by LUMI. Server logs hold no file names, file contents, report text or predictions.</li>
+            <li>The API needs a key, limits how fast it can be used, and checks every file's type, size and readability.</li>
+            <li>This page loads nothing from other websites, and your key is held only in this browser tab.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2>Documents</h2>
+          <p class="help">In the project folder: <code>README.md</code>, <code>docs/DEMO_GUIDE.md</code>, <code>docs/MODEL_CARD_skin_pad_ufes20.md</code>, <code>docs/DATA_GOVERNANCE.md</code>, <code>docs/SCOPE_REVIEW.md</code>, <code>docs/CHEST_XRAY_PLAN.md</code>.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="/demo/assets/app.js" defer></script>
+</body>
+</html>

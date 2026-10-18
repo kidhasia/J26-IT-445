@@ -6,7 +6,7 @@ Everything below runs on your MacBook. Nothing is sent over the internet. Time n
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: all tests pass (285 on 2026-10-18)
+.venv/bin/python -m pytest -q          # expect: all tests pass (312 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
@@ -21,22 +21,25 @@ cd "/Users/kidhasia/Desktop/Research Stuff"
 ```
 Wait for `Application startup complete.` and leave that window open. The script finds the newest trained model by itself and prints which one it is using. It also pre-fills the throw-away local API key in the page.
 
-## Step 2: open the demo page
+## Step 2: open the interface
 Browser: **http://localhost:8000/** (the developer page is still at http://localhost:8000/docs).
-At the top you will see three status chips. Skin photo and Lab report should be green ("working") and Chest X-ray grey ("not built yet"). If the skin chip is red, the model was not found (see "If something goes wrong").
+
+You will see a menu on the left (on a phone it runs across the top) with five pages: **Overview, Skin Analysis, Lab Reports, Chest X-ray, About LUMI**. At the top right, a green **"Server connected"** label and an **API key** button (the key is already filled in for local use).
+
+On **Overview**, the tool cards show their real status taken from the server: Skin Analysis and Lab Reports are green; Chest X-ray says **In development** and Medical questions says **Not started**. If Skin Analysis shows "Model not set up" in red, the model was not found (see "If something goes wrong").
 
 ## Step 3: show each working feature
-Choose what you are uploading, choose a file, click **Analyze**.
-
-| What to show | Choose | File to upload | What you should see |
+| What to show | Where | File to upload | What you should see |
 |---|---|---|---|
-| Lab-report reading | Lab report image | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | A table of 6 rows (test, result, unit, range as printed) and a note that LUMI does not judge normal or abnormal |
-| Missing values flagged | Lab report image | `syn_0002_missing_value.png` | Haemoglobin shown as "(not found)" with "Check against the original", not guessed |
-| Skin model | Skin photo | Any PNG or JPEG under 10 MB from `data/raw/PAD-UFES-20/images/` | The best-matching class, a bar for each of the six probabilities, the model's measured test score, and a Limitations list |
-| **Attention map (new)** | Skin photo, with the tick-box "Also show the AI attention map" ticked (it is by default) | the same skin photo | Under the bars: **"Where the model looked"**, the label *"AI attention visualisation — not a diagnosis or proof of correctness."*, your photo next to the same photo with a coloured map (warmer = more influence), a colour scale, and a collapsible list of what the map can and cannot tell you. Untick the box and click Analyze again: the map disappears and the prediction stays the same |
-| Honest refusal without a model | Stop the server (`Ctrl+C`), run `LUMI_SKIN_MODEL_PATH=/nonexistent ./scripts/run_dev.sh`, reload the page | the same skin photo | The skin chip turns red and the page says the model is not set up, with no prediction |
-| Security | Skin photo | Replace the API key with `wrong` and click Analyze | "401 unauthorized" with a plain-language hint |
-| Placeholder | Chest X-ray | any PNG | "Not built yet. No prediction was made." (say clearly it is not built) |
+| Skin model | **Skin Analysis**: drag a photo onto the drop area or click **browse**, then **Analyze photo** | Any PNG or JPEG under 10 MB from `data/raw/PAD-UFES-20/images/` | The highest-scoring class, a bar for each of the six model scores (labelled as *not* calibrated probabilities), the model's measured test score, a Limitations list and the clinical boundary notice |
+| Attention map | Same page, with **Show attention map (Grad-CAM)** switched on (it is by default) | the same photo | **"Attention map (experimental)"** under the label *"AI attention visualisation — not a diagnosis or proof of correctness."*, your photo beside the same photo with a coloured map (warmer = more influence), a colour scale, and a collapsible list of what the map can and cannot tell you. Switch it off and analyze again: the map disappears and the scores stay the same |
+| Lab-report reading | **Lab Reports**, then **Read report** | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | A yellow "Check every value against the original report" box and a table of 6 rows (test, result, unit, range as printed), each marked **Parsed** |
+| Missing values flagged | **Lab Reports** | `syn_0002_missing_value.png` | Haemoglobin's result shown as **Not found** with "Check against the original", not guessed |
+| Chest X-ray is unfinished | **Chest X-ray** | (nothing to upload) | A page that says it is **In development**, that there is no chest X-ray model, and that it makes no predictions. It has no upload control on purpose |
+| Limits and data | **About LUMI** | | What works, the PAD-UFES-20 dataset, the model's measured score from the server, and the limitations, including that it is not validated for children |
+| Honest refusal without a model | Stop the server (`Ctrl+C`), run `LUMI_SKIN_MODEL_PATH=/nonexistent ./scripts/run_dev.sh`, reload | the same skin photo | Overview shows "Model not set up" in red, and Skin Analysis explains that no analysis was done |
+| Bad file | **Skin Analysis** | a `.txt` file | A clear message that the file type is not supported (checked in the browser before anything is sent) |
+| Security | Click **API key**, replace the key with `wrong`, then analyze | any photo | "The API key was not accepted" with a plain-language hint and the key box open |
 
 Only use public practice photos and synthetic reports, never a real patient's file.
 
@@ -47,6 +50,12 @@ open docs/DATA_GOVERNANCE.md                # which datasets, licences, what is 
 open docs/SCOPE_REVIEW.md                   # traceability table and progress log
 open data/processed/inspection/pad_ufes_20_report.md   # dataset inspection report (counts only)
 ```
+Optional proof that the interface works in a real browser (about 1 minute; needs Google Chrome; it drives every page and flow, fakes server failures, and checks keyboard use, layout at four screen widths and that nothing is requested from other websites):
+```bash
+.venv/bin/python scripts/ui_smoke_test.py --skin-image data/raw/PAD-UFES-20/images/imgs_part_1/PAT_100_393_595.png --lab-image data/synthetic/lab_reports/syn_0001_complete.png
+```
+Expect `80 of 80 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
+
 Optional proof that the attention maps come from the real model (about 1 minute; prints a deletion test and a randomisation test):
 ```bash
 .venv/bin/python scripts/check_gradcam_faithfulness.py models/skin_pad_ufes20/20261018T072750Z data/raw/PAD-UFES-20/metadata.csv data/raw/PAD-UFES-20/images
@@ -60,7 +69,7 @@ Optional proof that the API matches the offline evaluation (about 2 minutes):
 Expect `identical predicted class for 454 of 454` and one image refused as too large.
 
 ## What to say honestly
-**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 285 automated tests.
+**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 312 automated tests and 80 real-browser checks.
 
 **Not finished:** chest X-ray analysis; medical question answering (questions are accepted but not answered); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
 
@@ -71,11 +80,12 @@ Expect `identical predicted class for 454 of 454` and one image refused as too l
 2. Is an almost entirely adult dataset acceptable for a pediatric project, given 39 under-18 images, all benign nevus?
 3. May the commercialisation section stand, given that ImageNet-pretrained weights have an unresolved licence question and HAM10000 is non-commercial?
 4. What numeric targets must each pipeline meet (C9)?
-5. Which chest X-ray and VQA datasets are approved, and who is the clinical reviewer (C10)?
+5. Which chest X-ray and VQA datasets are approved, and who is the clinical reviewer (C10)? The chest X-ray research, approval gate and questions are in `docs/CHEST_XRAY_PLAN.md`; nothing has been downloaded.
 
 ## If something goes wrong
 - **"Failed to Load Page / ERR_CONNECTION_REFUSED":** the server is not running (it stops when its Terminal window is closed or you press Ctrl+C). Start it again with `start_demo.command` or `./scripts/run_dev.sh` and wait for `Application startup complete.`
 - **`Address already in use`:** run `pkill -f "uvicorn lumi.main:app"`, then start again.
 - **Skin chip is red / 503 `model_unavailable`:** no trained model was found. Check that `models/skin_pad_ufes20/<run id>/checkpoint.pt` exists (the start script prints which model it uses). If `models/` is missing, retrain (see the model card).
-- **413 on a skin image:** the file is over 10 MB; use a smaller photo.
+- **"That file is ... over the 10 MB limit":** use a smaller photo. A few full-resolution dataset photos are larger than 10 MB.
+- **The page looks unstyled or does nothing:** the server is running an old copy. Stop it with `Ctrl+C` and start it again with `start_demo.command`.
 - **503 `ocr_unavailable`:** Tesseract is missing; run `brew install tesseract`.

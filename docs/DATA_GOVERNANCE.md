@@ -168,7 +168,7 @@ Legend: **VERIFIED** = read on the official source on the date shown. **UNVERIFI
 |---|---|---|---|---|
 | **PAD-UFES-20** v1 | Skin-lesion classifier (SO2/FR3) | CC BY 4.0 (VERIFIED) | **Yes**, 2026-10-18, and inspected | **In use for the research prototype.** Supervisor confirmation PENDING (see §5.3) |
 | HAM10000 | Skin (alternative) | CC BY-NC 4.0 (VERIFIED 2026-10-16) | No | **On hold.** Non-commercial; conflicts with the proposal's commercialisation section until your supervisor decides |
-| NIH ChestX-ray14 | Chest X-ray | UNVERIFIED (the official page could not be read by my tools; a mirror quotes an NIH FAQ saying use is unrestricted if you link to the source, acknowledge the NIH Clinical Center and cite the CVPR 2017 paper) | No (about 45 GB, terms unverified) | **Not started.** Read the NIH page yourself first |
+| NIH ChestX-ray14 | Chest X-ray | **Terms read in a mirror's copy of the NIH FAQ only** ("unrestricted", but link to the original site, acknowledge the NIH Clinical Center and cite the CVPR 2017 paper). The official NIH pages could not be read by my tools. "Unrestricted" is not a standard licence | **No** (reported at about 42-45 GB, unverified) | **Not started. Approval gate not passed.** See `docs/CHEST_XRAY_PLAN.md` |
 | VQA-RAD | Medical VQA | CC0 1.0 Universal (VERIFIED via the OSF API, node 89kps, 2026-10-18) | No | **Candidate**, not yet used. Small (315 images). Dataset contents and size not yet inspected |
 | Synthetic lab reports | OCR | Created by the project | Generated locally | In use (see data_cards/synthetic_lab_reports.md) |
 
@@ -207,6 +207,27 @@ Legend: **VERIFIED** = read on the official source on the date shown. **UNVERIFI
 
 | Candidate | What is known | Open points |
 |---|---|---|
-| NIH ChestX-ray14 | Original data is hosted by the NIH Clinical Center on Box (`nihcc.app.box.com/v/ChestXray-NIHCC`); the Box page could not be read by my tools. Labels are text-mined from reports. Citation: Wang et al., CVPR 2017 | Read the official README and terms yourself. Decide a subset size before downloading |
+| NIH ChestX-ray14 | Original data is hosted by the NIH Clinical Center on Box (`nihcc.app.box.com/v/ChestXray-NIHCC`, the link given in the original paper, **verified**); the Box page itself could not be read by my tools. Full research record, approval gate and pilot plan: `docs/CHEST_XRAY_PLAN.md` | Read the official terms yourself and save them here. The pediatric share is unknown until the metadata file is counted |
 | VQA-RAD | OSF doi:10.17605/OSF.IO/89KPS, CC0 1.0 (VERIFIED). A mirror reports 315 images and 2,248 question-answer pairs; the paper reports 3,515 questions; the difference is unresolved | Check contents on the OSF page; adult radiology only, so pediatric relevance is limited |
 | ISIC Archive (per-image CC0, CC-BY or CC-BY-NC) | Licence is set per image; the AWS Open Data registry lists an anonymous S3 bucket. A commercial-use-compatible subset could be built by filtering to CC0/CC-BY | Not investigated further today; check each image's licence |
+
+---
+
+## 6. Chest X-ray research (2026-10-18; nothing downloaded)
+
+Full detail, the approval gate and the pilot plan are in [CHEST_XRAY_PLAN.md](CHEST_XRAY_PLAN.md). Summary of what is verified and what is not:
+
+| Item | Status |
+|---|---|
+| Original paper (arXiv:1705.02315, CVPR 2017): 108,948 frontal images, 32,717 patients, 8 labels mined from radiology reports with NLP; it names `https://nihcc.app.box.com/v/ChestXray-NIHCC` as the download site | **VERIFIED** (read directly). This is the earlier 8-label version |
+| Released dataset: 14 labels, 112,120 images, 30,805 patients, PNG 1024 x 1024 | **UNVERIFIED** (mirrors and secondary papers only) |
+| Terms: usage "unrestricted", but give the link to the original download site, acknowledge the NIH Clinical Center, cite the CVPR 2017 paper | **MIRROR-ONLY.** Read in a PDF copy of the NIH FAQ in a Hugging Face dataset repository (PDF author field "Wang, Xiaosong (NIH/CC/LDRR)", created 2017-12-14). NIH's own news-release page returned HTTP 403 and the Box page could not be read |
+| No formal licence file was found | "Unrestricted with attribution" is not CC0 or CC BY; whether it covers the proposal's commercialisation section is **unresolved** |
+| Radiology reports are not released; PNG only; official patient-level split lists exist; 12 image archives with published MD5 checksums; "No finding" is not "normal"; labels are noisy | MIRROR-ONLY |
+| Patients under 18 | **Unknown.** No source gave a count. Only the small metadata file can answer it |
+| Re-identification | Chest X-rays can in principle be matched to individuals (secondary report found by search, not read). This project will not attempt linking and will not share images |
+
+**Pediatric alternative researched, not chosen:** "Large Dataset of Labeled Optical Coherence Tomography (OCT) and Chest X-Ray Images", Mendeley Data doi:10.17632/rscbjbr9sj.3 (UC San Diego and Guangzhou Women and Children's Medical Center). Licence **CC BY 4.0 VERIFIED** on the official record. One file, `ZhangLabData.zip`, 8,441,154,111 bytes, containing both eye scans and chest X-rays. The record does not state ages, demographics, image selection or ethics approval; "children aged 1 to 5, pneumonia versus normal" comes from secondary sources only. Needs the original *Cell* 2018 paper read and a supervisor decision.
+
+**Unresolved approvals (all must be settled before any chest X-ray download):** read the official NIH terms yourself; supervisor approval of the dataset; whether "unrestricted with attribution" is enough for commercialisation; whether a public de-identified dataset needs its own ethics application; how to handle the pediatric gap; numeric targets.
+

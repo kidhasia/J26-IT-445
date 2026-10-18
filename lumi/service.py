@@ -25,6 +25,15 @@ class AnalysisService:
     def pipeline_for(self, input_type: InputType) -> Pipeline:
         return self._pipelines[input_type]
 
+    def model_summaries(self) -> dict[str, dict]:
+        """Facts about trained models that are loaded, keyed by input type. Pipelines without a model are left out."""
+        summaries: dict[str, dict] = {}
+        for input_type, pipeline in self._pipelines.items():
+            describe = getattr(pipeline, "model_info", None)
+            if callable(describe):
+                summaries[input_type.value] = describe()
+        return summaries
+
     def statuses(self) -> dict[str, str]:
         """ready / placeholder (no real analysis) / unavailable (model not set up), per input type."""
         return {t.value: getattr(p, "status", "ready") for t, p in self._pipelines.items()}
