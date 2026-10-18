@@ -142,8 +142,22 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         return client_id
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok", "service": "lumi", "version": __version__}
+    def health() -> dict:
+        # pipelines: per input type, "ready", "placeholder" (no real analysis) or "unavailable" (model not set up)
+        return {"status": "ok", "service": "lumi", "version": __version__, "pipelines": service.statuses()}
+
+    if settings.demo_ui:
+        from fastapi.responses import HTMLResponse, RedirectResponse
+
+        from lumi.demo_ui import DEMO_PAGE_HEADERS, render_demo_page
+
+        @app.get("/", include_in_schema=False)
+        def root() -> RedirectResponse:
+            return RedirectResponse("/demo")
+
+        @app.get("/demo", include_in_schema=False)
+        def demo() -> HTMLResponse:
+            return HTMLResponse(render_demo_page(settings.demo_ui_key), headers=DEMO_PAGE_HEADERS)
 
     @app.post("/api/v1/analyze", response_model=AnalyzeResponse)
     async def analyze(

@@ -23,6 +23,13 @@ Chest X-ray, medical VQA and explainability are **not implemented**. Scope and o
 `docs/DATA_GOVERNANCE.md` (datasets, licences, what is verified and what is pending).
 The skin model is a research prototype: not clinically validated, and not shown to be reliable for children.
 
+## Start the demo page (easiest way)
+
+Double-click `scripts/start_demo.command` in Finder, or run `./scripts/run_dev.sh` in a terminal, then open **http://localhost:8000/**.
+The page shows what is working, lets you upload a practice file, and explains the result in plain language.
+The developer page is at http://localhost:8000/docs. The demo page is off unless `LUMI_DEMO_UI=1` (the start script sets it),
+so a real deployment serves only the API.
+
 ## Train the skin-lesion model (needs the PAD-UFES-20 data under `data/raw/`)
 
 ```bash
@@ -38,7 +45,7 @@ About 5 minutes on an Apple-silicon Mac (GPU via MPS). Each run is saved in `mod
 
 ## Use the trained model in the API
 
-Point `LUMI_SKIN_MODEL_PATH` at a checkpoint (only load checkpoints you trained yourself or trust):
+`./scripts/run_dev.sh` uses the newest checkpoint automatically. To choose one yourself, point `LUMI_SKIN_MODEL_PATH` at it (only load checkpoints you trained yourself or trust):
 
 ```bash
 export LUMI_SKIN_MODEL_PATH="$PWD/models/skin_pad_ufes20/<run id>/checkpoint.pt"
@@ -134,4 +141,6 @@ Every response, including errors, uses the same JSON envelope and carries `reque
 |---|---|---|
 | `LUMI_API_KEYS` | *(empty → all /api requests rejected)* | `client_id:key` pairs, comma-separated, keys of 16+ characters |
 | `LUMI_RATE_LIMIT_PER_MINUTE` | `60` | Per-client request limit |
+| `LUMI_DEMO_UI` | *(off)* | `1` serves the demo page at `/` and `/demo` (local use only) |
+| `LUMI_DEMO_UI_KEY` | *(none)* | Key pre-filled in the demo page; only ever a throw-away local development key |
 | `LUMI_SKIN_MODEL_PATH` | *(unset → skin endpoint answers 503)* | Path to a trained `checkpoint.pt` |

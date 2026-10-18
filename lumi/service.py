@@ -24,6 +24,10 @@ class AnalysisService:
     def pipeline_for(self, input_type: InputType) -> Pipeline:
         return self._pipelines[input_type]
 
+    def statuses(self) -> dict[str, str]:
+        """ready / placeholder (no real analysis) / unavailable (model not set up), per input type."""
+        return {t.value: getattr(p, "status", "ready") for t, p in self._pipelines.items()}
+
     def analyze(
         self,
         request_id: str,

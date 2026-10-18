@@ -7,6 +7,8 @@ from lumi.validation import ValidatedFile
 
 
 class ModelUnavailablePipeline:
+    status = "unavailable"
+
     def __init__(self, name: str, message: str):
         self.name = name
         self._message = message

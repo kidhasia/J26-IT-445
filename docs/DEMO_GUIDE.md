@@ -6,33 +6,38 @@ Everything below runs on your MacBook. Nothing is sent over the internet. Time n
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: 218 passed
+.venv/bin/python -m pytest -q          # expect: all tests pass (232 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
 
-## Step 1: start the server with the model
+## Step 1: start LUMI
+**Easiest:** in Finder, open the project folder, then `scripts`, and double-click **`start_demo.command`**. A Terminal window opens, the server starts, and your browser opens the demo page by itself. (The first time, macOS may ask you to confirm: right-click the file, choose Open, then Open.)
+
+**Or in the terminal:**
 ```bash
-export LUMI_SKIN_MODEL_PATH="$PWD/models/skin_pad_ufes20/20261018T072750Z/checkpoint.pt"
+cd "/Users/kidhasia/Desktop/Research Stuff"
 ./scripts/run_dev.sh
 ```
-Wait for `Application startup complete.` Leave this terminal alone. Open a **second** terminal tab for anything else.
+Wait for `Application startup complete.` and leave that window open. The script finds the newest trained model by itself and prints which one it is using. It also pre-fills the throw-away local API key in the page.
 
-## Step 2: open the interactive page
-Browser: **http://localhost:8000/docs**
-Click **Authorize**, paste `local-dev-key-not-for-production`, click Authorize, then Close.
+## Step 2: open the demo page
+Browser: **http://localhost:8000/** (the developer page is still at http://localhost:8000/docs).
+At the top you will see three status chips. Skin photo and Lab report should be green ("working") and Chest X-ray grey ("not built yet"). If the skin chip is red, the model was not found (see "If something goes wrong").
 
 ## Step 3: show each working feature
-Open `POST /api/v1/analyze`, click **Try it out**, choose an `input_type`, pick a file, click **Execute**.
+Choose what you are uploading, choose a file, click **Analyze**.
 
-| What to show | input_type | File to upload | What you should see |
+| What to show | Choose | File to upload | What you should see |
 |---|---|---|---|
-| Lab-report reading | `lab_report` | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | `"status": "completed"`, 6 rows (name, value, unit, range), a note that ranges are copied as printed |
-| Missing values flagged | `lab_report` | `syn_0002_missing_value.png` | The haemoglobin value shown as `null` with `needs_review: true`, not guessed |
-| Skin model | `skin_image` | Any PNG or JPEG of a skin photo under 10 MB, for example a photo from the dataset in `data/raw/PAD-UFES-20/images/` | `"status": "completed"`, a `predicted_class`, six probabilities, the model's test score and a list of limitations |
-| Honest refusal without a model | stop the server (`Ctrl+C`), run `unset LUMI_SKIN_MODEL_PATH`, start it again with `./scripts/run_dev.sh`, upload a skin image | the same | `503` and `"model_unavailable"`, with no prediction |
-| Security | any | click **Authorize → Logout**, then Execute | `401 unauthorized` |
-| Placeholder | `chest_xray` | any PNG | `"status": "not_implemented"`, no prediction (say clearly it is not built) |
+| Lab-report reading | Lab report image | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | A table of 6 rows (test, result, unit, range as printed) and a note that LUMI does not judge normal or abnormal |
+| Missing values flagged | Lab report image | `syn_0002_missing_value.png` | Haemoglobin shown as "(not found)" with "Check against the original", not guessed |
+| Skin model | Skin photo | Any PNG or JPEG under 10 MB from `data/raw/PAD-UFES-20/images/` | The best-matching class, a bar for each of the six probabilities, the model's measured test score, and a Limitations list |
+| Honest refusal without a model | Stop the server (`Ctrl+C`), run `LUMI_SKIN_MODEL_PATH=/nonexistent ./scripts/run_dev.sh`, reload the page | the same skin photo | The skin chip turns red and the page says the model is not set up, with no prediction |
+| Security | Skin photo | Replace the API key with `wrong` and click Analyze | "401 unauthorized" with a plain-language hint |
+| Placeholder | Chest X-ray | any PNG | "Not built yet. No prediction was made." (say clearly it is not built) |
+
+Only use public practice photos and synthetic reports, never a real patient's file.
 
 ## Step 4: show the evidence
 ```bash
@@ -48,7 +53,7 @@ Optional proof that the API matches the offline evaluation (about 2 minutes):
 Expect `identical predicted class for 454 of 454` and one image refused as too large.
 
 ## What to say honestly
-**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 218 automated tests.
+**Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 232 automated tests.
 
 **Not finished:** chest X-ray analysis; medical question answering (questions are accepted but not answered); explainability heatmaps; PDF reports; OCR accuracy measurement on real reports; any model for children.
 
@@ -62,8 +67,8 @@ Expect `identical predicted class for 454 of 454` and one image refused as too l
 5. Which chest X-ray and VQA datasets are approved, and who is the clinical reviewer (C10)?
 
 ## If something goes wrong
-- **Page won't load:** the server is not running. Check the first terminal for `Application startup complete.`
+- **"Failed to Load Page / ERR_CONNECTION_REFUSED":** the server is not running (it stops when its Terminal window is closed or you press Ctrl+C). Start it again with `start_demo.command` or `./scripts/run_dev.sh` and wait for `Application startup complete.`
 - **`Address already in use`:** run `pkill -f "uvicorn lumi.main:app"`, then start again.
-- **503 `model_unavailable` on a skin image:** the `export LUMI_SKIN_MODEL_PATH=...` line was skipped in this terminal, or the path is wrong.
+- **Skin chip is red / 503 `model_unavailable`:** no trained model was found. Check that `models/skin_pad_ufes20/<run id>/checkpoint.pt` exists (the start script prints which model it uses). If `models/` is missing, retrain (see the model card).
 - **413 on a skin image:** the file is over 10 MB; use a smaller photo.
 - **503 `ocr_unavailable`:** Tesseract is missing; run `brew install tesseract`.

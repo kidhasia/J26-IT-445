@@ -28,6 +28,10 @@ class Settings:
     rate_limit_per_minute: int = 60
     # Path to a trained skin-lesion checkpoint. None means "not configured": the skin endpoint answers 503.
     skin_model_path: str | None = None
+    # Local demo web page at "/" and "/demo". Off by default so a real deployment serves only the API.
+    demo_ui: bool = False
+    # Optional key pre-filled in the demo page. Only ever set it to a throw-away local development key.
+    demo_ui_key: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "Settings":
@@ -35,4 +39,6 @@ class Settings:
             api_key_hashes=parse_api_keys(env.get("LUMI_API_KEYS", "")),
             rate_limit_per_minute=int(env.get("LUMI_RATE_LIMIT_PER_MINUTE", "60")),
             skin_model_path=env.get("LUMI_SKIN_MODEL_PATH") or None,
+            demo_ui=env.get("LUMI_DEMO_UI", "") == "1",
+            demo_ui_key=env.get("LUMI_DEMO_UI_KEY") or None,
         )

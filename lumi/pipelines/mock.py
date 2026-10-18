@@ -13,6 +13,8 @@ UNANSWERED_QUESTION_WARNING = "QUESTION_NOT_ANSWERED: the reasoning layer is not
 
 
 class MockPipeline:
+    status = "placeholder"  # shown on /health and in the demo page: no real analysis behind this input type
+
     def __init__(self, input_type: InputType):
         self.input_type = input_type
         self.name = f"mock_{input_type.value}"
