@@ -6,7 +6,7 @@ Component IT23153318, project J26-IT-445, Multimodal AI/ML backend. Compiled 202
 
 | Part | State | Evidence (where to look) | Biggest limit |
 |---|---|---|---|
-| Secure REST API | Working | `tests/` (435 passed), `docs/SCOPE_REVIEW.md` §9 | No HTTPS, no deployment, who issues keys is undecided (C1) |
+| Secure REST API | Working | `tests/` (485 passed), `docs/SCOPE_REVIEW.md` §9 | No HTTPS, no deployment, who issues keys is undecided (C1) |
 | Skin-lesion classifier | Working, first model | `docs/MODEL_CARD_skin_pad_ufes20.md` | Accuracy 0.633, macro-F1 0.543; 11 melanoma test images; adult data |
 | Grad-CAM attention map | Working (skin only) | Model card §9 | Coarse (8 by 8); no clinician has judged it |
 | Lab-report OCR | Working on synthetic images | `docs/OCR_EVALUATION.md`, `docs/evaluations/ocr_synthetic_results.json` | Measured on 3 clean synthetic reports only |
@@ -68,15 +68,26 @@ Source: `lumi/qa/`, `POST /api/v1/ask`, the **Ask a question** page, `tests/test
 | Not-in-evidence questions refused | 7 of 7 |
 | Manipulation attempts refused | 3 of 3 |
 | **Total** | **38 of 38** |
-| Paraphrases written afterwards (not used to tune the rules) | **12 of 17** as expected, **0** unsafe answers; the 5 misses were safe refusals (for example "Which lesion type did the model pick?", "What does the report say for Hb?") |
 
-- **How to read that honestly:** the 38 questions were written by the same person who wrote the rules, so 38 of 38 is **in-sample and optimistic**. The paraphrase probe is the better guide: the rules understand fixed wording only, and about 4 in 10 reasonable rewordings of an answerable question were refused. One probe question ("Can you tell me if the glucose is high?") exposed a real gap (it was answered with the printed value); the refusal list was extended with words such as high, low, concerning, harmful and risk, and a test was added, so that question is no longer "unseen".
+**Reworded questions, reported separately (supported questions versus questions that must be refused):**
+
+| Set | Supported questions answered correctly | Supported but safely refused | Supported but answered wrongly | Must-refuse questions refused | Must-refuse answered unsafely |
+|---|---|---|---|---|---|
+| Set 1 **before** the matching fix (17 questions) | 8 of 13 | 5 | 0 | 4 of 4 | 0 |
+| Set 1 after the fix (same 17; **used to guide the fix, so not independent**) | 13 of 13 | 0 | 0 | 4 of 4 | 0 |
+| **Set 2** (74 new questions, written before being run) | **34 of 35 (97%)** | 1 | 0 | **39 of 39** after one fix (38 of 39 on the first run) | **0** after the fix (1 on the first run) |
+
+(Set 1 "before" is the earlier "12 of 17" result, now split into supported and must-refuse questions; the earlier glucose gap had already been fixed by then. The five safe refusals were the five failures listed in the task.)
+
+- **How to read that honestly:** the 38 regression questions and both reworded sets were all written by the same person who wrote the rules, so **none of this is independent validation**. Set 2 was written before it was run, which makes it a fairer guide than the 38, but its one unsafe answer ("Is the sodium within the reference range?") showed that "within/outside/above/below" were missing from the refusal list. That was fixed with a general rule and a test, so Set 2's final 39 of 39 is partly tuned to that one item. The one remaining miss ("Show all the tests that were read") is a safe refusal and was deliberately left unfixed so the result stays honest. The rules still only understand fixed vocabulary; a differently worded question can be refused even when the evidence holds the answer, and the intent is that doubt always ends in refusal, never a guess.
+- **Conflicting evidence** (for example a predicted class that is not the highest score, probabilities that do not add up, a lab row that has a value but is listed as missing) is rejected with `invalid_evidence`, so the system never chooses between two statements that disagree.
+
 - **Not done:** any test with real users, a larger or independently written question set, other languages, free-text questions about anything not in the structured result, comparison with a text-only baseline (the proposal's VQA evaluation), or a clinician rubric.
 - **Trust limit:** LUMI does not verify that the supplied evidence is genuine; every answer carries an `EVIDENCE_NOT_VERIFIED` warning.
 
 ## 6. Security and software testing results
-- **Full test suite, run 2026-10-18 on the final tree: 435 passed** (`.venv/bin/python -m pytest -rs`; no failures; the run was not repeated on another machine). Covers API validation, authentication, rate limiting, privacy-safe logging, upload limits, OCR parsing and evaluation, skin pipeline, Grad-CAM, the interface page, Q&A, and a repository-hygiene test that fails if data or model files become tracked.
-- **Real-browser check:** `scripts/ui_smoke_test.py` in headless Chrome against a cold-started server: **94 of 94 checks passed** (pages, skin and lab workflows, Ask-a-question flows, error states, keyboard use, layout at four widths, no requests to other sites, no script errors).
+- **Full test suite, run 2026-10-18 on the final tree: 485 passed** (`.venv/bin/python -m pytest -rs`; no failures; the run was not repeated on another machine). Covers API validation, authentication, rate limiting, privacy-safe logging, upload limits, OCR parsing and evaluation, skin pipeline, Grad-CAM, the interface page, Q&A, and a repository-hygiene test that fails if data or model files become tracked.
+- **Real-browser check:** `scripts/ui_smoke_test.py` in headless Chrome against a cold-started server: **97 of 97 checks passed** (pages, skin and lab workflows, Ask-a-question flows, error states, keyboard use, layout at four widths, no requests to other sites, no script errors).
 - **Security properties tested:** no key, wrong key and malformed headers get 401 (also for the Q&A endpoint before any body is read); rate limit 429 with `Retry-After`; oversized bodies 413 (also for chunked uploads); wrong content type 415; invalid input 422; error messages and logs never contain file names, report text, questions, predictions or evidence (tests capture and search the log output); the interface sends a strict Content-Security-Policy and inserts server text only as plain text. Earlier live probe of the running server: `docs/SCOPE_REVIEW.md` §9 (2026-10-18 rows).
 - **Not done:** HTTPS/TLS, penetration testing, load or latency measurement (no numeric targets exist, C9), dependency audit, role-based access, real key management.
 

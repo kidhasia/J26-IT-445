@@ -1,6 +1,6 @@
 # Completion assessment (2026-10-18)
 
-Made from the repository as it is today (3,887 lines of Python in `lumi/`, 17 test files with 435 passing tests, a 1,236-line web interface, 10 documents), the proposal (`J26-IT-445 - IT23153318.pdf`), the Topic Assessment Form, and `docs/SCOPE_REVIEW.md`.
+Made from the repository as it is today (3,887 lines of Python in `lumi/`, 17 test files with 485 passing tests, a 1,236-line web interface, 10 documents), the proposal (`J26-IT-445 - IT23153318.pdf`), the Topic Assessment Form, and `docs/SCOPE_REVIEW.md`.
 
 **These percentages are my judgement, not measurements.** Each component's score and weight is a choice made explicit below so you can disagree with it, and I would treat each result as **plus or minus about 5 points**. They are meant to be sobering, not flattering.
 
@@ -65,7 +65,7 @@ Cross-checks (both are less trustworthy than the weighted result):
 | Experiments and evaluation | 15 | 30% | 4.50 | Skin results with intervals and one baseline; OCR vs plain Tesseract on synthetic text; attention-map sanity checks. Missing: chest, question answering, four of the proposal's five baseline comparisons, an integrated-versus-fragmented comparison |
 | Scientific and clinical validation | 10 | 2% | 0.20 | No clinician review, no pediatric data, no real reports |
 | Approvals, ethics and team integration | 10 | 10% | 1.00 | Questions drafted; none answered; nothing integrated |
-| Documentation and reproducibility | 5 | 75% | 3.75 | Model card, data cards, governance record, evaluation reports, demo guide, 435 tests, reproducible commands |
+| Documentation and reproducibility | 5 | 75% | 3.75 | Model card, data cards, governance record, evaluation reports, demo guide, 485 tests, reproducible commands |
 | Final thesis | 10 | 5% | 0.50 | Evidence is accumulating in the documents; no thesis chapters written |
 | Presentation and viva | 5 | 30% | 1.50 | A working demo and a demo guide; no slides or viva preparation |
 | **Total** | **100** | | **34.95** | |
