@@ -41,6 +41,7 @@
         <li><a href="#overview" data-nav="overview"><svg class="icon" aria-hidden="true"><use href="#i-overview"/></svg><span>Overview</span></a></li>
         <li><a href="#skin" data-nav="skin"><svg class="icon" aria-hidden="true"><use href="#i-skin"/></svg><span>Skin Analysis</span></a></li>
         <li><a href="#lab" data-nav="lab"><svg class="icon" aria-hidden="true"><use href="#i-lab"/></svg><span>Lab Reports</span></a></li>
+        <li><a href="#ask" data-nav="ask"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Ask a question</span></a></li>
         <li><a href="#xray" data-nav="xray"><svg class="icon" aria-hidden="true"><use href="#i-xray"/></svg><span class="nav-text"><span>Chest X-ray</span><span class="nav-tag">In development</span></span></a></li>
         <li><a href="#about" data-nav="about"><svg class="icon" aria-hidden="true"><use href="#i-about"/></svg><span>About LUMI</span></a></li>
       </ul>
@@ -103,8 +104,9 @@
           </article>
           <article class="card tool">
             <div class="tool-head"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><h3>Medical questions</h3></div>
-            <p>A small prototype answers simple factual questions about a result you already have, using only that result. It is available through the API only and is not in this interface. It is not a medical chatbot.</p>
-            <p><span class="badge neutral">API only</span></p>
+            <p>Ask a simple factual question about a skin or lab result you just produced. It answers only from that result, and refuses everything else. It is not a medical chatbot.</p>
+            <p><span class="badge info">Small prototype</span></p>
+            <a class="btn secondary" href="#ask">Ask a question <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
           </article>
         </div>
 
@@ -186,6 +188,36 @@
         </div>
       </section>
 
+      <!-- ============================ ASK A QUESTION ============================ -->
+      <section class="page" id="page-ask" aria-labelledby="h-ask" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Ask a question</p>
+          <h1 id="h-ask" tabindex="-1">Ask about a result</h1>
+          <p class="lead">Ask a simple factual question about a result you already have. LUMI answers only from that result, using fixed rules (no language model, no internet). It cannot diagnose and is not a medical chatbot.</p>
+        </header>
+        <div class="two-col">
+          <div class="card">
+            <h2>1. Choose the result</h2>
+            <fieldset class="choice-group">
+              <legend class="visually-hidden">Which result to ask about</legend>
+              <label class="choice"><input type="radio" name="ask-source" value="skin" id="ask-src-skin" disabled> <span>Latest skin result <span class="fine" id="ask-skin-note">(none yet; use Skin Analysis first)</span></span></label>
+              <label class="choice"><input type="radio" name="ask-source" value="lab" id="ask-src-lab" disabled> <span>Latest lab report result <span class="fine" id="ask-lab-note">(none yet; use Lab Reports first)</span></span></label>
+            </fieldset>
+            <h2 class="spaced">2. Your question</h2>
+            <label class="visually-hidden" for="ask-question">Question (up to 500 characters)</label>
+            <textarea id="ask-question" class="text-input" rows="3" maxlength="500" placeholder="For example: What limitations apply to this result?"></textarea>
+            <p class="fine">Examples (select one to fill the box):</p>
+            <div class="chips" id="ask-examples"></div>
+            <p class="field-error" id="ask-error" role="alert" hidden></p>
+            <button type="button" class="btn primary block" id="ask-go">Ask</button>
+            <div class="callout info compact"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div>The answer comes only from the result you chose. LUMI does not check that the result is genuine. Your question and result are not stored.</div></div>
+          </div>
+          <div id="ask-result" class="result-area" aria-live="polite" tabindex="-1">
+            <div class="empty-state"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-info"/></svg><h2>The answer will appear here</h2><p>First analyse a skin photo or a lab report, then come back and ask a question about it. Anything the result cannot answer gets: “I cannot answer this from the available evidence.”</p></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ============================ CHEST X-RAY ============================ -->
       <section class="page" id="page-xray" aria-labelledby="h-xray" hidden>
         <header class="page-head">
@@ -224,7 +256,7 @@
               <tr><th scope="row">Lab report reading</th><td><span class="badge warn">Synthetic only</span></td><td>Images only. Accuracy measured on 3 clean synthetic reports, not on real ones. No interpretation of results.</td></tr>
               <tr><th scope="row">PDF lab reports</th><td><span class="badge neutral">Not supported</span></td><td>Accepted by the API but not analysed.</td></tr>
               <tr><th scope="row">Chest X-ray analysis</th><td><span class="badge info">In development</span></td><td>No model yet.</td></tr>
-              <tr><th scope="row">Medical questions</th><td><span class="badge neutral">API only</span></td><td>Rule-based answers from a supplied result. Not in this interface.</td></tr>
+              <tr><th scope="row">Medical questions</th><td><span class="badge info">Small prototype</span></td><td>Rule-based answers from a result you already have. No language model.</td></tr>
             </tbody>
           </table></div>
         </div>
