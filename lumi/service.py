@@ -7,6 +7,9 @@ from dataclasses import replace
 from lumi.config import CLINICAL_BOUNDARY_NOTICE, Settings
 from lumi.logging_config import logger
 from lumi.pipelines.base import Pipeline
+from lumi.pipelines.mock import UNANSWERED_QUESTION_WARNING
+from lumi.qa.answerer import answer_question
+from lumi.qa.evidence import EvidenceError, parse_evidence
 from lumi.pipelines.mock import MockPipeline
 from lumi.pipelines.unavailable import ModelUnavailablePipeline
 from lumi.pipelines.ocr.engine import TesseractEngine
@@ -55,7 +58,7 @@ class AnalysisService:
             output = pipeline.run(file, question)
             if explain:
                 output = replace(output, warnings=[*output.warnings, EXPLANATION_NOT_AVAILABLE_WARNING])
-        return AnalyzeResponse(
+        response = AnalyzeResponse(
             request_id=request_id,
             input_type=input_type,
             result=output.result,
@@ -66,6 +69,28 @@ class AnalysisService:
             warnings=list(output.warnings),
             clinical_boundary_notice=CLINICAL_BOUNDARY_NOTICE,
         )
+        if question is not None:
+            response = self._answer_from_own_result(response, question)
+        return response
+
+    @staticmethod
+    def _answer_from_own_result(response: AnalyzeResponse, question: str) -> AnalyzeResponse:
+        """One request, one answer: the question is answered from the result this same request just produced, with the
+        same rules as POST /api/v1/ask (see lumi/qa). It never uses anything else. If there is no completed result to
+        answer from (placeholder pipeline, nothing read), the answer stays empty and the 'not answered' warning stays."""
+        if response.input_type == InputType.CHEST_XRAY or not response.result or response.result.get("status") != "completed":
+            return response
+        try:
+            evidence = parse_evidence(response.model_dump(mode="json"))
+        except EvidenceError:
+            return response  # the result is not usable as evidence, so say nothing rather than guess
+        answer = answer_question(question, evidence)
+        warnings = [w for w in response.warnings if w != UNANSWERED_QUESTION_WARNING]
+        return response.model_copy(update={
+            "answer": answer.text,
+            "explanation": response.explanation if answer.answerable else (response.explanation or answer.note),
+            "warnings": warnings,
+        })
 
 
 EXPLANATION_NOT_AVAILABLE_WARNING = (
