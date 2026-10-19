@@ -52,7 +52,7 @@ Cross-checks (both are less trustworthy than the weighted result):
 
 ### Requirements by state
 - **Completed (for the prototype's scope):** FR9 structured responses, FR11 safe logging, FR10 boundary notice (wording pending), FR8 secure endpoints (no TLS), skin intake, preprocessing and classification, the demo interface.
-- **Partly completed:** FR1 (chest uploads are accepted but not analysed), FR2 and FR3 (skin only), FR4 OCR, FR5 (questions are accepted but not answered), FR7 explainability, six of the seven non-functional requirements (see `docs/SCOPE_REVIEW.md` §7).
+- **Partly completed:** FR1 (chest uploads are accepted but not analysed), FR2 and FR3 (skin only), FR4 OCR, FR5 (a question sent with a skin photo or lab report is answered by the small rule-based layer; chest X-ray and PDF questions are not), FR7 explainability, six of the seven non-functional requirements (see `docs/SCOPE_REVIEW.md` §7).
 - **Unfinished:** FR6 (only the smallest rule-based version exists; nothing combines the image itself with a question), chest X-ray analysis, any model-based or image-based question answering, PDF reports, HTTPS and deployment, load and latency measurement, integration with other components.
 
 ## B. Overall research project: calculation

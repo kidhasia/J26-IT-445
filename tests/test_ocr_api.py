@@ -104,11 +104,31 @@ def test_text_without_result_rows_reports_no_fields(settings):
     assert "NO_FIELDS_PARSED" in warning_codes(body)
 
 
-def test_question_is_not_answered_yet(settings):
+def test_question_sent_with_the_report_is_answered_from_that_reports_result(settings):
+    client = client_with_engine(settings, FakeEngine([OcrLine("Sodium 139 mmol/L 135 - 145", 90.0)]))
+    body = upload(client, make_png(), question="What was the reported sodium value?").json()
+    assert "139" in body["answer"] and "mmol/L" in body["answer"]
+    assert UNANSWERED_QUESTION_WARNING not in body["warnings"]
+
+
+def test_judging_question_sent_with_the_report_gets_the_refusal(settings):
     client = client_with_engine(settings, FakeEngine([OcrLine("Sodium 139 mmol/L 135 - 145", 90.0)]))
     body = upload(client, make_png(), question="Is this normal?").json()
-    assert body["answer"] is None
-    assert UNANSWERED_QUESTION_WARNING in body["warnings"]
+    assert body["answer"] == "I cannot answer this from the available evidence."
+    assert body["result"]["fields"][0]["value"] == "139"
+
+
+def test_question_about_a_report_with_no_rows_is_refused_not_guessed(settings):
+    client = client_with_engine(settings, FakeEngine([OcrLine("Some unrelated letter text", 90.0)]))
+    body = upload(client, make_png(), question="What was the sodium value?").json()
+    assert body["answer"] == "I cannot answer this from the available evidence."
+
+
+def test_question_and_report_text_are_not_logged(settings, caplog):
+    client = client_with_engine(settings, FakeEngine([OcrLine("Sodium 139 mmol/L 135 - 145", 90.0)]))
+    with caplog.at_level("DEBUG"):
+        upload(client, make_png(), question="What was the ZZUNIQUEQUESTION sodium value?")
+    assert "ZZUNIQUEQUESTION" not in caplog.text and "139" not in caplog.text and "Sodium" not in caplog.text
 
 
 def test_ocr_unavailable_returns_503_envelope(settings):

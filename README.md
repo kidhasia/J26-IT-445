@@ -5,7 +5,7 @@ Research prototype for **decision support only**. It does not diagnose and does 
 Current state (see the status table below for exactly what is real):
 API with validation, API-key auth, rate limiting and privacy-safe logging; lab-report OCR on PNG/JPEG images (local Tesseract);
 a skin-lesion classifier fine-tuned on the public PAD-UFES-20 dataset (6 classes, adults almost exclusively).
-Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray analysis and image-based medical VQA are **not implemented**; a small rule-based question-answering endpoint exists (see below). Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+A `question` sent with a skin photo or lab report to `/api/v1/analyze` is answered in the same response (field `answer`) from that request's own result, using the small rule-based answerer described below. Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray analysis and image-based medical VQA are **not implemented**; a small rule-based question-answering endpoint exists (see below). Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
 
 
 ## What works today
@@ -125,7 +125,7 @@ curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Authorization: Bearer local-dev-key-not-for-production" \
   -F input_type=skin_image \
   -F "file=@/path/to/image.png;type=image/png" \
-  -F "question=What does this show?"
+  -F "question=What was the predicted skin class?"
 ```
 
 ## Asking questions about a result

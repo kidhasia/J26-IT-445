@@ -131,10 +131,29 @@ def test_same_image_gives_the_same_answer_twice(configured_client):
     assert upload(configured_client).json()["result"]["probabilities"] == first
 
 
-def test_question_is_not_answered_yet(configured_client):
+def test_question_sent_with_the_photo_is_answered_from_that_photos_result(configured_client):
+    body = upload(configured_client, question="What was the predicted skin class?").json()
+    top = body["result"]["predicted_class_name"]
+    assert top in body["answer"] and "not a diagnosis" in body["answer"]
+    assert not any(w.startswith("QUESTION_NOT_ANSWERED") for w in body["warnings"])
+    assert body["result"]["probabilities"] == upload(configured_client).json()["result"]["probabilities"]  # asking changes nothing else
+
+
+def test_unsafe_question_sent_with_the_photo_gets_the_refusal(configured_client):
     body = upload(configured_client, question="Is this cancer?").json()
+    assert body["answer"] == "I cannot answer this from the available evidence."
+    assert body["result"]["status"] == "completed" and body["result"]["predicted_class"]  # the analysis itself is still returned
+
+
+def test_no_question_means_no_answer(configured_client):
+    body = upload(configured_client).json()
     assert body["answer"] is None
-    assert any(w.startswith("QUESTION_NOT_ANSWERED") for w in body["warnings"])
+    assert not any(w.startswith("QUESTION_NOT_ANSWERED") for w in body["warnings"])
+
+
+def test_question_with_attention_map_still_answers(configured_client):
+    body = upload(configured_client, question="Is there an attention map?", explain="true").json()
+    assert "attention map" in body["answer"].lower() and "explanation_image" in body["result"]
 
 
 @pytest.mark.parametrize("mode", ["RGB", "RGBA", "L"])
