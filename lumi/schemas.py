@@ -18,6 +18,7 @@ class ErrorCode(str, Enum):
     INVALID_FIELD = "invalid_field"
     INVALID_METADATA = "invalid_metadata"
     INVALID_EVIDENCE = "invalid_evidence"
+    REFERENCE_UNAVAILABLE = "reference_unavailable"
     EMPTY_FILE = "empty_file"
     FILE_TOO_LARGE = "file_too_large"
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"

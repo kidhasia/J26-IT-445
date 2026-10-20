@@ -3,6 +3,7 @@
 import json
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
@@ -14,7 +15,7 @@ from lumi import __version__
 from lumi.auth import ApiKeyAuthenticator
 from lumi.config import CLINICAL_BOUNDARY_NOTICE, MULTIPART_OVERHEAD_BYTES, Settings
 from lumi.errors import LumiError
-from lumi.logging_config import configure_logging, log_analyze, log_ask, log_rejected, logger
+from lumi.logging_config import configure_logging, log_analyze, log_ask, log_rag, log_rejected, logger
 from lumi.qa.answerer import answer_question
 from lumi.qa.evidence import EvidenceError, parse_evidence
 from lumi.ratelimit import RateLimiter
@@ -76,6 +77,20 @@ def _parse_metadata(raw: str | None) -> RequestMetadata | None:
         ) from exc
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAG_PATH = "/api/v1/rag-demo"
+RAG_MAX_BODY_BYTES = 4_096  # one short question
+RAG_MAX_QUESTION_CHARS = 300
+RAG_WARNINGS = [
+    "PROJECT_DOCUMENTS_ONLY: the passages come from LUMI's own project documents. They are not an approved medical "
+    "knowledge base and are not medical advice.",
+    "EXTRACTIVE_PROTOTYPE: the passages are quoted word for word by a keyword search. No language model wrote or checked "
+    "this answer, and the search has not been evaluated.",
+]
+RAG_NOTE_REFUSED_PERSONAL = (
+    "This demo searches project documents only. It does not answer questions about a person's own health, diagnosis or treatment."
+)
+RAG_NOTE_REFUSED_WEAK = "No passage in the project documents matched the question well enough to answer it."
 ASK_PATH = "/api/v1/ask"
 ASK_MAX_BODY_BYTES = 300_000  # a question plus one analysis result; far smaller than an image upload
 ASK_MAX_QUESTION_CHARS = 500
@@ -141,6 +156,46 @@ def _parse_ask_body(body: bytes) -> tuple[str, object]:
     return question, payload["evidence"]
 
 
+def _parse_rag_body(body: bytes) -> str:
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The request body is not valid JSON.", field="body") from exc
+    if not isinstance(payload, dict):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The request body must be a JSON object.", field="body")
+    unexpected = sorted(set(payload) - {"question"})
+    if unexpected:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "Only 'question' is allowed.", field=str(unexpected[0])[:40])
+    if "question" not in payload:
+        raise LumiError(422, ErrorCode.MISSING_FIELD, "Required field 'question' is missing.", field="question")
+    question = payload["question"]
+    if not isinstance(question, str):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question must be text.", field="question")
+    question = question.strip()
+    if not question:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question is empty.", field="question")
+    if len(question) > RAG_MAX_QUESTION_CHARS:
+        raise LumiError(422, ErrorCode.INVALID_FIELD, f"The question is longer than {RAG_MAX_QUESTION_CHARS} characters.", field="question")
+    if any(ord(ch) < 32 and ch not in "\t\n\r" for ch in question):
+        raise LumiError(422, ErrorCode.INVALID_FIELD, "The question contains control characters.", field="question")
+    return question
+
+
+def _load_rag(settings: Settings):
+    """Build the retriever once at start-up. Returns (retriever or None, corpus or None). Never raises: a broken corpus
+    switches the feature to 'unavailable' (503) and leaves everything else working."""
+    try:
+        from lumi.rag.corpus import load_corpus
+        from lumi.rag.retrieve import Retriever
+
+        manifest = Path(settings.rag_manifest)
+        corpus = load_corpus(manifest if manifest.is_absolute() else PROJECT_ROOT / manifest)
+        return Retriever(corpus), corpus
+    except Exception as exc:  # noqa: BLE001  (CorpusError, or a library problem; the type is logged, never the message)
+        logger.error(json.dumps({"event": "rag_corpus_load_failed", "type": type(exc).__name__}))
+        return None, None
+
+
 def create_app(settings: Settings | None = None, service: AnalysisService | None = None) -> FastAPI:
     settings = settings or Settings()
     service = service or build_default_service(settings)
@@ -156,13 +211,13 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         # Rejects obviously oversized uploads from the Content-Length header, before the body is read.
         # Chunked uploads without Content-Length are still caught later by the per-file size check.
         length = request.headers.get("content-length", "")
-        is_ask = request.url.path == ASK_PATH
-        limit = ASK_MAX_BODY_BYTES if is_ask else settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES
+        small_limits = {ASK_PATH: ASK_MAX_BODY_BYTES, RAG_PATH: RAG_MAX_BODY_BYTES}
+        limit = small_limits.get(request.url.path, settings.max_upload_bytes + MULTIPART_OVERHEAD_BYTES)
         if request.url.path.startswith("/api/") and length.isdigit() and int(length) > limit:
             log_rejected(path=request.url.path, status_code=413, error_code=ErrorCode.FILE_TOO_LARGE)
             error = ErrorDetail(
                 code=ErrorCode.FILE_TOO_LARGE,
-                message=f"The request body exceeds the {ASK_MAX_BODY_BYTES if is_ask else settings.max_upload_bytes} byte limit.",
+                message=f"The request body exceeds the {limit if request.url.path in small_limits else settings.max_upload_bytes} byte limit.",
             )
             return _error_response(413, error)
         return await call_next(request)
@@ -206,17 +261,24 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
         rate_limiter.check(client_id)
         return client_id
 
+    rag_retriever, rag_corpus = _load_rag(settings) if settings.rag_demo else (None, None)
+
     @app.get("/health")
     def health() -> dict:
         # pipelines: per input type, "ready", "placeholder" (no real analysis) or "unavailable" (model not set up).
         # models: facts about any trained model that is loaded (name, training run, held-out score), for the About page.
-        return {
+        body = {
             "status": "ok",
             "service": "lumi",
             "version": __version__,
             "pipelines": service.statuses(),
             "models": service.model_summaries(),
         }
+        if settings.rag_demo:  # this key exists only while the demo is switched on
+            body["reference_search"] = {"status": "ready" if rag_retriever else "unavailable",
+                                        "documents": len(rag_corpus.documents) if rag_corpus else 0,
+                                        "passages": len(rag_corpus.passages) if rag_corpus else 0}
+        return body
 
     if settings.demo_ui:
         from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -322,6 +384,64 @@ def create_app(settings: Settings | None = None, service: AnalysisService | None
             warnings=[ASK_EVIDENCE_WARNING],
             clinical_boundary_notice=CLINICAL_BOUNDARY_NOTICE,
         )
+
+    if settings.rag_demo:
+        from lumi.rag.retrieve import CANNOT_ANSWER, compose_answer, is_personal_medical_question
+
+        @app.post(RAG_PATH, response_model=AnalyzeResponse, openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {
+            "type": "object", "required": ["question"], "additionalProperties": False,
+            "properties": {"question": {"type": "string", "minLength": 1, "maxLength": RAG_MAX_QUESTION_CHARS}}}}}}})
+        async def rag_demo(request: Request, client_id: str = Depends(require_client)):
+            """Extractive retrieval demo: quotes the best-matching passages from LUMI's own project documents, with citations.
+
+            Not a medical chatbot and not generative: no language model, no network, nothing stored. Questions about a
+            person's health, and questions the documents do not cover, get: "I cannot answer this from the available evidence."
+            """
+            request_id = _new_request_id()
+            started = time.perf_counter()
+            try:
+                if rag_retriever is None:
+                    raise LumiError(503, ErrorCode.REFERENCE_UNAVAILABLE, "The reference documents are not available on this server, so nothing was searched.")
+                if not request.headers.get("content-type", "").lower().startswith("application/json"):
+                    raise LumiError(415, ErrorCode.UNSUPPORTED_MEDIA_TYPE, "Send the question as JSON (Content-Type: application/json).")
+                question = _parse_rag_body(await _read_limited_body(request, RAG_MAX_BODY_BYTES))
+            except LumiError as exc:
+                log_rag(request_id=request_id, client_id=client_id, status_code=exc.status_code, started=started, error_code=exc.code)
+                error = ErrorDetail(code=exc.code, message=exc.message, field=exc.field)
+                return _error_response(exc.status_code, error, request_id=request_id, headers=exc.headers)
+
+            refusal_reason = None
+            hits = []
+            if is_personal_medical_question(question):
+                refusal_reason = "personal_medical_question"
+            else:
+                hits = rag_retriever.search(question)
+                if not hits:
+                    refusal_reason = "insufficient_evidence"
+            sources = []
+            for number, hit in enumerate(hits, start=1):
+                info = next(d for d in rag_corpus.documents if d.doc_id == hit.passage.doc_id)
+                sources.append({
+                    "citation": f"R{number}", "doc_id": info.doc_id, "title": info.title, "section": hit.passage.section,
+                    "passage_id": hit.passage.passage_id, "lines": f"{hit.passage.line_start}-{hit.passage.line_end}",
+                    "path": info.path, "source_sha256": info.sha256, "source_type": info.source_type,
+                    "approved_for_medical_use": info.approved_for_medical_use, "score": hit.score,
+                    "query_coverage": hit.coverage, "excerpt": hit.excerpt, "excerpt_truncated": hit.truncated,
+                })
+            answerable = refusal_reason is None
+            log_rag(request_id=request_id, client_id=client_id, status_code=200, started=started, answerable=answerable,
+                    sources=len(sources), refusal_reason=refusal_reason)
+            return AnalyzeResponse(
+                request_id=request_id,
+                input_type=None,
+                result={"mode": "extractive_retrieval_demo", "answerable": answerable, "refusal_reason": refusal_reason,
+                        "corpus": {"kind": "LUMI project documents (not an approved medical knowledge base)", "documents": len(rag_corpus.documents)},
+                        "sources": sources},
+                answer=compose_answer(hits) if answerable else CANNOT_ANSWER,
+                explanation=None if answerable else (RAG_NOTE_REFUSED_PERSONAL if refusal_reason == "personal_medical_question" else RAG_NOTE_REFUSED_WEAK),
+                warnings=list(RAG_WARNINGS),
+                clinical_boundary_notice=CLINICAL_BOUNDARY_NOTICE,
+            )
 
     return app
 

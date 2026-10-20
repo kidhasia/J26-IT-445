@@ -108,7 +108,7 @@ class Browser:
     def goto(self, url: str) -> None:
         self.send("Page.navigate", url=url)
         self.wait("document.readyState === 'complete'")
-        self.wait("document.querySelectorAll('[data-nav]').length === 6")
+        self.wait("document.querySelectorAll('[data-nav]').length === 7")
         time.sleep(0.4)
 
     def viewport(self, width: int, height: int = 900, mobile: bool = False) -> None:
@@ -162,7 +162,7 @@ def main() -> int:
         check("opening / lands on the demo page", b.js("location.pathname") == "/demo", b.js("location.pathname"))
         check("overview is the first page and the others are hidden", b.js("!document.getElementById('page-overview').hidden && ['skin','lab','xray','about'].every(p => document.getElementById('page-'+p).hidden)"))
         labels = b.js("Array.from(document.querySelectorAll('[data-nav]')).map(a => a.innerText.replace(/\\s+/g,' ').trim())")
-        check("navigation has the six required entries", [x.split(" In development")[0] for x in labels] == ["Overview", "Skin Analysis", "Lab Reports", "Ask a question", "Chest X-ray", "About LUMI"], str(labels))
+        check("navigation has the seven required entries", [x.split(" In development")[0].split(" Prototype")[0] for x in labels] == ["Overview", "Skin Analysis", "Lab Reports", "Ask a question", "Reference search", "Chest X-ray", "About LUMI"], str(labels))
         b.wait("document.getElementById('server-pill').textContent.includes('connected')")
         check("server status shows connected", "connected" in text(b, "#server-pill"), text(b, "#server-pill"))
         badges = b.js("Array.from(document.querySelectorAll('[data-status-for]')).map(n => n.textContent)")
@@ -198,7 +198,7 @@ def main() -> int:
         b.click("#skin-go")
         check("loading state appears while analysing", b.wait("document.getElementById('skin-go').disabled === true || document.querySelector('#skin-result .loading')", 3))
         done = b.wait("document.querySelectorAll('#skin-result .score-row').length === 6", 40)
-        check("skin result shows six class scores", done)
+        check("skin result shows six class scores", done, str(b.js("document.querySelectorAll('#skin-result .score-row').length")))
         check("button is enabled again after the analysis", b.js("!document.getElementById('skin-go').disabled"))
         check("highest-scoring class is shown", len(text(b, "#skin-result .top-class .name")) > 3, text(b, "#skin-result .top-class .name"))
         check("scores are labelled as not clinical probabilities", "not calibrated probabilities" in text(b, "#skin-result") and "not clinical certainty" in text(b, "#skin-result"))
@@ -268,6 +268,24 @@ def main() -> int:
         check("a wrong API key shows the key hint on this page too", b.wait("!!document.querySelector('#ask-result .callout.err')", 10) and "API key" in text(b, "#ask-result"))
         b.js("location.reload()")
         time.sleep(1.5)
+
+        print("REFERENCE SEARCH (extractive retrieval demo; needs LUMI_RAG_DEMO=1, which scripts/run_dev.sh sets)")
+        b.js("location.hash = '#rag'")
+        time.sleep(0.4)
+        check("example questions are shown on the reference search page", b.js("document.querySelectorAll('#rag-examples .chip').length") >= 3)
+
+        def rag_question(question):
+            b.js(f"document.getElementById('rag-question').value = {json.dumps(question)}")
+            b.js("document.getElementById('rag-result').textContent = ''")
+            b.click("#rag-go")
+            return b.wait("!!(document.querySelector('#rag-result .source-card') || document.querySelector('#rag-result .callout'))", 20)
+
+        check("a project question returns cited passages", rag_question("Was the model trained from scratch?") and b.js("document.querySelectorAll('#rag-result .source-card').length") >= 1, text(b, "#rag-result"))
+        check("each passage shows its document, section, passage id and lines", "passage panel-defence:" in text(b, "#rag-result .source-card") and "lines" in text(b, "#rag-result .source-card"), text(b, "#rag-result .source-card"))
+        check("the page labels the sources as project documents, not medical advice", "not medical advice" in text(b, "#rag-result") and "not an approved medical" in text(b, "#rag-result"), text(b, "#rag-result"))
+        b.shot(out, "06c_reference_search_desktop")
+        check("an unrelated question gets the exact refusal", rag_question("What is the capital of France?") and "I cannot answer this from the available evidence." in text(b, "#rag-result"), text(b, "#rag-result"))
+        check("a personal medical question is refused", rag_question("Do I have melanoma?") and "I cannot answer this from the available evidence." in text(b, "#rag-result"), text(b, "#rag-result"))
 
         print("ERROR HANDLING")
         b.js("location.hash = '#skin'")
@@ -356,7 +374,7 @@ def main() -> int:
         print("RESPONSIVE LAYOUT (no sideways scrolling)")
         for width, height, mobile in ((1440, 900, False), (1024, 800, False), (768, 1000, False), (390, 844, True)):
             b.viewport(width, height, mobile)
-            for page in ("overview", "skin", "lab", "ask", "xray", "about"):
+            for page in ("overview", "skin", "lab", "ask", "rag", "xray", "about"):
                 b.js(f"location.hash = '#{page}'")
                 time.sleep(0.25)
                 overflow = b.js("document.documentElement.scrollWidth - document.documentElement.clientWidth")

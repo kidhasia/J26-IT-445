@@ -143,7 +143,7 @@ def test_nothing_is_loaded_from_other_websites(html_text, js, css):
 
 
 def test_the_page_calls_only_the_servers_own_relative_endpoints(js):
-    assert re.findall(r"""fetch\(\s*["']([^"']+)["']""", js) == ["/health", "/api/v1/analyze", "/api/v1/ask"]
+    assert re.findall(r"""fetch\(\s*["']([^"']+)["']""", js) == ["/health", "/api/v1/analyze", "/api/v1/ask", "/api/v1/rag-demo"]
     assert 'headers: { "Authorization": "Bearer " + key }' in js
 
 
@@ -250,8 +250,8 @@ def page(html_text) -> Page:
     return Page(html_text)
 
 
-def test_navigation_has_the_six_required_entries(page):
-    assert page.nav == ["overview", "skin", "lab", "ask", "xray", "about"]
+def test_navigation_has_the_seven_required_entries(page):
+    assert page.nav == ["overview", "skin", "lab", "ask", "rag", "xray", "about"]
     for name in page.nav:
         assert f"#{name}" in page.link_hrefs and f"page-{name}" in page.sections
 
@@ -315,7 +315,7 @@ def test_every_form_control_has_a_label_and_every_image_has_alt_text(page, js):
 
 
 def test_results_are_announced_and_errors_are_alerts(html_text, js):
-    assert html_text.count('aria-live="polite"') == 3
+    assert html_text.count('aria-live="polite"') == 4
     assert html_text.count('role="alert"') >= 3 and 'role="status"' in html_text
     assert 'setAttribute("aria-busy", "true")' in js and 'removeAttribute("aria-busy")' in js
 

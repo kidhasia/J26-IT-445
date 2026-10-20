@@ -158,11 +158,15 @@ were found, the text-reading confidence, and limitations.
 - Only skin-photo and lab-report results are accepted (not the chest X-ray placeholder). Questions are at most 500 characters and the body at most 300,000 bytes. Same API key and rate limit as `/analyze`.
 - The question, the evidence and the answer are never written to the log. Not evaluated on real users or real reports; not clinically validated.
 
+## Retrieval demo (phase 1, off by default)
+`POST /api/v1/rag-demo` is an **extractive retrieval prototype**: a local TF-IDF search over LUMI's own project documents that quotes the best-matching passages with citations. No language model writes any text, nothing is sent over the network, and the sources are **not** an approved medical knowledge base. Switch it on with `LUMI_RAG_DEMO=1` (`scripts/run_dev.sh` does this). Guide, expected sources and limits: [docs/RAG_DEMO_GUIDE.md](docs/RAG_DEMO_GUIDE.md); corpus rules: [knowledge/README.md](knowledge/README.md).
+
 ## API summary
 
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | Liveness check |
+| `POST /api/v1/rag-demo` | `Authorization: Bearer <key>` | JSON: `question` (up to 300 characters). **Only exists when `LUMI_RAG_DEMO=1`.** Returns cited passages from the project documents, or the refusal sentence |
 | `POST /api/v1/ask` | `Authorization: Bearer <key>` | JSON: `question` (text, up to 500 characters) and `evidence` (the JSON that `/analyze` returned for a skin photo or lab report). Answers only from the evidence |
 | `POST /api/v1/analyze` | `Authorization: Bearer <key>` | Multipart: `input_type` (`skin_image` \| `chest_xray` \| `lab_report`), `file`, optional `question`, optional `metadata` (JSON with only `client_platform`, `client_version`, `locale`), optional `explain` (`true` adds a Grad-CAM attention map to skin results; off by default) |
 

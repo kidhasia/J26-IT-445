@@ -1,0 +1,9 @@
+{
+  "note": "Demonstration corpus for the extractive retrieval prototype. These are LUMI's OWN project documents. They are not an approved medical knowledge base and must not be used as medical advice. Paths are relative to this file.",
+  "documents": [
+    {"doc_id": "panel-defence", "title": "Panel defence record: LUMI skin-lesion classifier", "path": "../docs/PANEL_DEFENCE_SKIN_MODEL.md", "source_type": "project_document", "licence": "project-owned", "approved_for_medical_use": false},
+    {"doc_id": "model-card", "title": "Model card: LUMI skin-lesion classifier", "path": "../docs/MODEL_CARD_skin_pad_ufes20.md", "source_type": "project_document", "licence": "project-owned", "approved_for_medical_use": false},
+    {"doc_id": "ocr-evaluation", "title": "Lab-report OCR evaluation", "path": "../docs/OCR_EVALUATION.md", "source_type": "project_document", "licence": "project-owned", "approved_for_medical_use": false},
+    {"doc_id": "evidence-package", "title": "LUMI evidence package", "path": "../docs/EVIDENCE_PACKAGE.md", "source_type": "project_document", "licence": "project-owned", "approved_for_medical_use": false}
+  ]
+}

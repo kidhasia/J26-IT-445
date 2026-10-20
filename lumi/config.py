@@ -32,6 +32,9 @@ class Settings:
     demo_ui: bool = False
     # Optional key pre-filled in the demo page. Only ever set it to a throw-away local development key.
     demo_ui_key: str | None = None
+    # Extractive retrieval demo (POST /api/v1/rag-demo). Off by default; when off the route does not exist at all.
+    rag_demo: bool = False
+    rag_manifest: str = "knowledge/manifest.json"  # relative paths are taken from the project folder
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "Settings":
@@ -41,4 +44,6 @@ class Settings:
             skin_model_path=env.get("LUMI_SKIN_MODEL_PATH") or None,
             demo_ui=env.get("LUMI_DEMO_UI", "") == "1",
             demo_ui_key=env.get("LUMI_DEMO_UI_KEY") or None,
+            rag_demo=env.get("LUMI_RAG_DEMO", "") == "1",
+            rag_manifest=env.get("LUMI_RAG_MANIFEST") or "knowledge/manifest.json",
         )

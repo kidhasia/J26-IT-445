@@ -42,6 +42,7 @@
         <li><a href="#skin" data-nav="skin"><svg class="icon" aria-hidden="true"><use href="#i-skin"/></svg><span>Skin Analysis</span></a></li>
         <li><a href="#lab" data-nav="lab"><svg class="icon" aria-hidden="true"><use href="#i-lab"/></svg><span>Lab Reports</span></a></li>
         <li><a href="#ask" data-nav="ask"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Ask a question</span></a></li>
+        <li><a href="#rag" data-nav="rag"><svg class="icon" aria-hidden="true"><use href="#i-lab"/></svg><span class="nav-text"><span>Reference search</span><span class="nav-tag">Prototype</span></span></a></li>
         <li><a href="#xray" data-nav="xray"><svg class="icon" aria-hidden="true"><use href="#i-xray"/></svg><span class="nav-text"><span>Chest X-ray</span><span class="nav-tag">In development</span></span></a></li>
         <li><a href="#about" data-nav="about"><svg class="icon" aria-hidden="true"><use href="#i-about"/></svg><span>About LUMI</span></a></li>
       </ul>
@@ -214,6 +215,30 @@
           </div>
           <div id="ask-result" class="result-area" aria-live="polite" tabindex="-1">
             <div class="empty-state"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-info"/></svg><h2>The answer will appear here</h2><p>First analyse a skin photo or a lab report, then come back and ask a question about it. Anything the result cannot answer gets: “I cannot answer this from the available evidence.”</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ REFERENCE SEARCH (extractive retrieval demo) ============================ -->
+      <section class="page" id="page-rag" aria-labelledby="h-rag" hidden>
+        <header class="page-head">
+          <p class="eyebrow">Reference search</p>
+          <h1 id="h-rag" tabindex="-1">Search LUMI's project documents</h1>
+          <p class="lead">A small local search that finds and quotes the passages of LUMI's own write-ups (model card, evaluation records) that best match your question, with a citation for each. It does not write text, and it is not medical advice.</p>
+        </header>
+        <div class="two-col">
+          <div class="card">
+            <h2>Your question</h2>
+            <label class="visually-hidden" for="rag-question">Question (up to 300 characters)</label>
+            <textarea id="rag-question" class="text-input" rows="3" maxlength="300" placeholder="For example: What limitations does the skin model have?"></textarea>
+            <p class="fine">Examples (select one to fill the box):</p>
+            <div class="chips" id="rag-examples"></div>
+            <p class="field-error" id="rag-error" role="alert" hidden></p>
+            <button type="button" class="btn primary block" id="rag-go">Search</button>
+            <div class="callout info compact"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><div><strong>Extractive prototype.</strong> The sources are LUMI's own project documents, not an approved medical knowledge base. The keyword search has not been evaluated, and anything it cannot match gets a refusal. Your question is not stored.</div></div>
+          </div>
+          <div id="rag-result" class="result-area" aria-live="polite" tabindex="-1">
+            <div class="empty-state"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-lab"/></svg><h2>Passages will appear here</h2><p>Ask about how the skin model was trained, how it was evaluated, its limits, or the lab-report reading results. If nothing in the documents matches, you will get: “I cannot answer this from the available evidence.”</p></div>
           </div>
         </div>
       </section>

@@ -10,15 +10,15 @@
   var SVG_NS = "http://www.w3.org/2000/svg";
   var MAX_BYTES = 10 * 1024 * 1024;
   var ALLOWED_TYPES = ["image/png", "image/jpeg"];
-  var PAGES = ["overview", "skin", "lab", "ask", "xray", "about"];
-  var TITLES = { overview: "Overview", skin: "Skin Analysis", lab: "Lab Reports", ask: "Ask a question", xray: "Chest X-ray", about: "About LUMI" };
+  var PAGES = ["overview", "skin", "lab", "ask", "rag", "xray", "about"];
+  var TITLES = { overview: "Overview", skin: "Skin Analysis", lab: "Lab Reports", ask: "Ask a question", rag: "Reference search", xray: "Chest X-ray", about: "About LUMI" };
   var FALLBACK_LABEL = "AI attention visualisation — not a diagnosis or proof of correctness.";
   var BASE64_ONLY = new RegExp("^[A-Za-z0-9+/=]+$");
   var REQUEST_TIMEOUT_MS = 120000;
   // Already shown in plain words next to the scores, so it is not repeated in the warnings box.
   var HIDDEN_WARNINGS = ["MODEL_SCORE_NOT_CLINICAL_CERTAINTY"];
 
-  var state = { health: null, busy: { skin: false, lab: false, ask: false }, results: { skin: null, lab: null } };
+  var state = { health: null, busy: { skin: false, lab: false, ask: false, rag: false }, results: { skin: null, lab: null } };
   var uploaders = {};
 
   /* ------------------------------------------------------------------ small DOM helpers */
@@ -298,6 +298,7 @@
     invalid_field: ["Part of the request was not valid", "Check your choices and try again."],
     invalid_input_type: ["That kind of file is not supported here", "Use the Skin Analysis or Lab Reports page."],
     invalid_metadata: ["Part of the request was not valid", "Try again."],
+    reference_unavailable: ["The reference documents are not available", "The project documents could not be loaded on this server, so nothing was searched. Check that knowledge/manifest.json and the documents it lists exist."],
     invalid_evidence: ["The supplied result cannot be used", "Send the JSON returned by a completed skin or lab-report analysis."],
     model_unavailable: ["The skin model is not set up on this server", "No analysis was done and nothing was made up. Start LUMI with scripts/start_demo.command, or see docs/DEMO_GUIDE.md."],
     ocr_unavailable: ["Text reading is not available", "The text-reading program (Tesseract) is missing on this computer."],
@@ -329,7 +330,8 @@
     var code = error && typeof error.code === "string" ? error.code : null;
     var entry = code ? ERRORS[code] : null;
     if (!entry) {
-      if (res.status === 401) entry = ERRORS.unauthorized;
+      if (res.status === 404 && res.endpoint === "rag") entry = ["Reference search is switched off on this server", "Start LUMI with LUMI_RAG_DEMO=1 (scripts/run_dev.sh does this) and reload the page."];
+      else if (res.status === 401) entry = ERRORS.unauthorized;
       else if (res.status === 429) entry = ERRORS.rate_limited;
       else if (res.status >= 500) entry = ERRORS.internal_error;
       else entry = ["The request could not be completed", "Try again with a different file."];
@@ -727,6 +729,91 @@
       .then(function () { setBusy("ask", false, button, "Ask"); finish(container); });
   }
 
+  /* ------------------------------------------------------------------ reference search (extractive retrieval demo) */
+
+  var RAG_EXAMPLES = [
+    "What limitations does the skin model have?",
+    "Was the model trained from scratch?",
+    "What was the character error rate of the lab-report reading?",
+    "What is the capital of France?"
+  ];
+
+  function renderRagExamples() {
+    var box = $("rag-examples");
+    clear(box);
+    RAG_EXAMPLES.forEach(function (text) {
+      var chip = h("button", "chip", text);
+      chip.type = "button";
+      chip.addEventListener("click", function () { $("rag-question").value = text; $("rag-question").focus(); });
+      box.appendChild(chip);
+    });
+  }
+
+  function sourceCard(source) {
+    var c = h("div", "card source-card");
+    var head = h("div", "source-head");
+    add(head, badge("info", source.citation), strong(" " + String(source.title)));
+    var meta = String(source.section) + " · passage " + String(source.passage_id) + " · lines " + String(source.lines) +
+      " · file " + String(source.path).replace(/^\.\.\//, "") + " (SHA-256 " + String(source.source_sha256).slice(0, 12) + ")";
+    add(c, head, para("fine", meta), para("answer-text", String(source.excerpt)),
+      para("fine", "Match score " + Number(source.score).toFixed(2) + " · question words found " + Math.round(Number(source.query_coverage) * 100) + "%" +
+        (source.excerpt_truncated ? " · shortened to the most relevant lines" : "") +
+        (source.approved_for_medical_use ? "" : " · not an approved medical source")));
+    return c;
+  }
+
+  function renderRag(container, body) {
+    clear(container);
+    var result = body.result || {};
+    if (result.answerable === false) {
+      var c = card("No answer from the project documents");
+      c.appendChild(para("answer-text", String(body.answer || REFUSAL)));
+      if (body.explanation) c.appendChild(callout("info", "info", h("div", null, String(body.explanation))));
+      container.appendChild(c);
+    } else {
+      (result.sources || []).forEach(function (source) { container.appendChild(sourceCard(source)); });
+    }
+    var warnings = warningsCard(body.warnings);
+    if (warnings) container.appendChild(warnings);
+    container.appendChild(boundaryCard(body.clinical_boundary_notice));
+  }
+
+  function ragAsk() {
+    if (state.busy.rag) return;
+    var error = $("rag-error");
+    error.hidden = true;
+    var question = $("rag-question").value.trim();
+    if (!question) { error.textContent = "Type a question first."; error.hidden = false; $("rag-question").focus(); return; }
+    var key = getKey();
+    if (!key) { setKeyPanel(true, "Enter your API key to continue."); return; }
+    var container = $("rag-result");
+    var button = $("rag-go");
+    setBusy("rag", true, button, "Search");
+    showLoading(container, "Searching the project documents…");
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 30000);
+    fetch("/api/v1/rag-demo", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ question: question }),
+      signal: controller.signal
+    })
+      .then(function (response) {
+        clearTimeout(timer);
+        return response.text().then(function (text) {
+          var body = null;
+          try { body = JSON.parse(text); } catch (e) { body = null; }
+          return { status: response.status, body: body, retryAfter: response.headers.get("Retry-After"), endpoint: "rag" };
+        });
+      })
+      .then(function (res) {
+        if (!res.body || typeof res.body !== "object" || res.body.error || res.status >= 400) renderRequestError(container, res);
+        else renderRag(container, res.body);
+      })
+      .catch(function (err) { clearTimeout(timer); renderNetworkError(container, err); })
+      .then(function () { setBusy("rag", false, button, "Search"); finish(container); });
+  }
+
   /* ------------------------------------------------------------------ start-up */
 
   function init() {
@@ -735,6 +822,8 @@
     $("skin-go").addEventListener("click", function () { analyze("skin"); });
     $("lab-go").addEventListener("click", function () { analyze("lab"); });
     $("ask-go").addEventListener("click", ask);
+    $("rag-go").addEventListener("click", ragAsk);
+    renderRagExamples();
     document.querySelectorAll("input[name=ask-source]").forEach(function (r) { r.addEventListener("change", renderExamples); });
     refreshAskSources();
 

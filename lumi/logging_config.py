@@ -78,5 +78,31 @@ def log_ask(
     logger.info(json.dumps(record))
 
 
+def log_rag(
+    *,
+    request_id: str,
+    client_id: str,
+    status_code: int,
+    started: float,
+    error_code: ErrorCode | None = None,
+    answerable: bool | None = None,
+    sources: int | None = None,
+    refusal_reason: str | None = None,
+) -> None:
+    """One line per reference-search request: counts and labels only. Never the question, the passages or the answer."""
+    record = {
+        "event": "rag_demo",
+        "request_id": request_id,
+        "client_id": client_id,
+        "status": status_code,
+        "error_code": error_code.value if error_code else None,
+        "answerable": answerable,
+        "sources": sources,
+        "refusal_reason": refusal_reason,
+        "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+    }
+    logger.info(json.dumps(record))
+
+
 def log_rejected(*, path: str, status_code: int, error_code: ErrorCode) -> None:
     logger.info(json.dumps({"event": "rejected", "path": path, "status": status_code, "error_code": error_code.value}))

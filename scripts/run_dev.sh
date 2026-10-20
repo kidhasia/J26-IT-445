@@ -8,6 +8,8 @@ cd "$(dirname "$0")/.."
 DEV_KEY="local-dev-key-not-for-production"
 export LUMI_API_KEYS="${LUMI_API_KEYS:-dev:$DEV_KEY}"
 export LUMI_DEMO_UI="${LUMI_DEMO_UI:-1}"
+# Extractive retrieval demo over the project documents (page "Reference search"). Set LUMI_RAG_DEMO=0 to switch it off.
+export LUMI_RAG_DEMO="${LUMI_RAG_DEMO:-1}"
 # Pre-fill the key in the demo page only when the throw-away development key is in use.
 if [ "$LUMI_API_KEYS" = "dev:$DEV_KEY" ]; then export LUMI_DEMO_UI_KEY="${LUMI_DEMO_UI_KEY:-$DEV_KEY}"; fi
 
@@ -21,6 +23,7 @@ PORT="${PORT:-8000}"
 echo "Demo page:        http://localhost:$PORT/"
 echo "API docs:         http://localhost:$PORT/docs"
 echo "API key (local):  ${LUMI_API_KEYS#*:}"
+echo "Reference search: $([ "$LUMI_RAG_DEMO" = "1" ] && echo "on (page: Reference search)" || echo "off")"
 echo "Skin model:       ${LUMI_SKIN_MODEL_PATH:-none (skin photos will get a 503 'model_unavailable' answer)}"
 echo "Stop the server with Ctrl+C."
 
