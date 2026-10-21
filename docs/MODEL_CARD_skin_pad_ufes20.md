@@ -13,7 +13,7 @@ All numbers below were produced on 2026-10-18 by the commands in §8 and are cop
 | Output | Class probabilities. `confidence` = the top probability, **the model's relative score, not clinical certainty** |
 | Training | 12 epochs, AdamW lr 3e-4, batch 32, tempered inverse-frequency class weights, flip/rotation/crop/colour augmentation, seed 42, Apple MPS GPU, 402 s |
 | Epoch chosen | Epoch 7, selected on the **validation** split (validation macro-F1 0.549) |
-| Code version | git commit `cee09208d9ba5d43a1766f9c3094efafbe0379fc`, no uncommitted changes at training time |
+| Code version | git commit `cee09208d9ba5d43a1766f9c3094efafbe0379fc`, no uncommitted changes at training time. **Note:** on 2026-10-21 the Git history was rewritten to remove a co-author line from commit messages. The same commit, with byte-identical file contents, is now `a5d0d893fa3b3966512c0db05c1b1aa9e4ea836a`. The checkpoint's own `config.json` (not changed) still records the old hash |
 
 ## 2. Data
 PAD-UFES-20 v1 (CC BY 4.0, smartphone photos, Brazil). Full record: `docs/data_cards/pad_ufes_20.md` and `docs/DATA_GOVERNANCE.md` §5.
