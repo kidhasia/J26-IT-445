@@ -315,7 +315,7 @@ def test_every_form_control_has_a_label_and_every_image_has_alt_text(page, js):
 
 
 def test_results_are_announced_and_errors_are_alerts(html_text, js):
-    assert html_text.count('aria-live="polite"') == 4
+    assert html_text.count('aria-live="polite"') == 5  # four result areas plus the floating helper's message log
     assert html_text.count('role="alert"') >= 3 and 'role="status"' in html_text
     assert 'setAttribute("aria-busy", "true")' in js and 'removeAttribute("aria-busy")' in js
 
@@ -331,7 +331,9 @@ def test_keyboard_focus_is_always_visible_on_real_controls(css):
 
 def test_motion_and_touch_targets_are_considerate(css):
     assert "@media (prefers-reduced-motion: reduce)" in css
-    assert len(re.findall(r"animation:\s+(?!none)\w", css)) == 1  # only the loading spinner moves (and it stops when asked)
+    assert len(re.findall(r"animation:\s+(?!none)\w", css)) == 2  # only the loading spinner and the floating helper's gentle bob move
+    reduced = css[css.index("@media (prefers-reduced-motion: reduce)") :].split("}\n}")[0]
+    assert ".spinner { animation: none; }" in reduced and ".chat-launcher { animation: none; }" in reduced  # both stop when asked
     assert re.search(r"\.btn \{[^}]*min-height: 4\d+px", css)
 
 
@@ -367,7 +369,7 @@ def test_every_text_and_background_colour_pair_meets_wcag_aa(css):
     pairs = [
         ("ink", "bg"), ("ink", "surface"), ("ink-2", "surface"), ("ink-2", "bg"), ("muted", "surface"), ("muted", "bg"), ("muted", "neutral-soft"),
         ("accent", "surface"), ("accent-strong", "surface"), ("accent-strong", "accent-soft"), ("ink", "accent-soft"), ("ink-2", "accent-soft"),
-        ("on-accent", "accent"), ("on-accent", "accent-hover"), ("ok", "ok-soft"), ("warn", "warn-soft"), ("err", "err-soft"),
+        ("on-accent", "accent"), ("on-accent", "accent-hover"), ("ink", "neutral-soft"), ("ok", "ok-soft"), ("warn", "warn-soft"), ("err", "err-soft"),
         ("info", "info-soft"), ("neutral", "neutral-soft"), ("neutral", "surface"), ("on-accent", "ink"),
     ]
     failures = []

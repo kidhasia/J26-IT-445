@@ -159,7 +159,7 @@ were found, the text-reading confidence, and limitations.
 - The question, the evidence and the answer are never written to the log. Not evaluated on real users or real reports; not clinically validated.
 
 ## Retrieval demo (phase 1, off by default)
-`POST /api/v1/rag-demo` is an **extractive retrieval prototype**: a local TF-IDF search over LUMI's own project documents that quotes the best-matching passages with citations. No language model writes any text, nothing is sent over the network, and the sources are **not** an approved medical knowledge base. Switch it on with `LUMI_RAG_DEMO=1` (`scripts/run_dev.sh` does this). Guide, expected sources and limits: [docs/RAG_DEMO_GUIDE.md](docs/RAG_DEMO_GUIDE.md); corpus rules: [knowledge/README.md](knowledge/README.md).
+`POST /api/v1/rag-demo` is an **extractive retrieval prototype**: a local TF-IDF search over LUMI's own project documents that quotes the best-matching passages with citations. No language model writes any text, nothing is sent over the network, and the sources are **not** an approved medical knowledge base. Switch it on with `LUMI_RAG_DEMO=1` (`scripts/run_dev.sh` does this). A floating **Ask LUMI** helper (bottom-right of every page) offers this search and the result questions in a small panel; it writes no answers of its own. Guide, expected sources, known failures and limits: [docs/RAG_DEMO_GUIDE.md](docs/RAG_DEMO_GUIDE.md); corpus rules: [knowledge/README.md](knowledge/README.md).
 
 ## API summary
 

@@ -1,8 +1,14 @@
 """Find the passages that answer a question, and write the extractive answer.
 
-Search: TF-IDF (scikit-learn) over the passages, scored by cosine similarity. A passage is only used if it clears two
-checks, so a single shared word is not enough: the score must reach MIN_SCORE, and the passage must contain at least
-half of the question's meaningful words. A question needs at least two meaningful words.
+Search: TF-IDF (scikit-learn) over the passages. A passage's score is its body match plus half of its heading match, so a passage
+under a heading that is about the question ranks well. A passage is only used if it clears these checks, so a shared common word
+is not enough:
+  - the score must reach MIN_SCORE;
+  - the passage must contain at least MIN_QUERY_WORDS of the question's meaningful words, and at least MIN_COVERAGE of their total
+    weight, where a word's weight is how rare it is in the corpus (a word the corpus never uses counts as the rarest of all);
+  - it must contain the question's rarest word(s): if the question asks about "solar panels" and the documents never mention them,
+    matching "limitations" or "model" is not evidence.
+A question needs at least two meaningful words.
 Answer: the matching passages themselves, word for word, each tagged [R1], [R2]... No text is generated.
 The two numbers below were chosen by hand after trying about a dozen questions; they have not been tuned or evaluated.
 """
@@ -13,28 +19,23 @@ from dataclasses import dataclass
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 
 from lumi.rag.corpus import Corpus, Passage, plain
+from lumi.rag.safety import is_personal_medical_question  # noqa: F401  (re-exported: the guard runs before any search)
 
 CANNOT_ANSWER = "I cannot answer this from the available evidence."
 MIN_SCORE = 0.10
 MIN_COVERAGE = 0.5
 MIN_QUERY_WORDS = 2
+HEADING_WEIGHT = 1.0  # a matching section heading counts as much as a matching body: it says what the passage is about
+RAREST_SHARE = 0.9  # 'the question's rarest word(s)' = words at least this share as rare as the rarest
 MIN_PASSAGE_WORDS = 12  # a very short fragment (one bullet) makes a poor answer on its own, so it is not returned
 MAX_SOURCES = 3
 MAX_EXCERPT_CHARS = 700
 # Words that carry no meaning here ("tell me about ..."), on top of scikit-learn's English stop words.
-FILLER = frozenset("tell explain describe say says said show give list mention document documents report project lumi please".split())
-_TOKEN = re.compile(r"[a-z0-9]+(?:\.[0-9]+)?")
-
-# Questions about a person's own health, or asking for diagnosis or treatment. These are refused before any search.
-PERSONAL_PHRASES = (
-    "do i have", "does my", "is my", "should i", "am i", "can i take", "what should i", "my child", "my son", "my daughter",
-    "my baby", "my mole", "my skin", "my lesion", "my rash", "my result", "my results", "my blood", "my test", "my photo",
-    "diagnose me", "treat me", "is it cancer", "is this cancer", "is it melanoma", "is this melanoma", "is this safe",
-    "what treatment", "which treatment", "how to treat", "how do i treat", "what medicine", "what medication", "what dose",
-    "need to see a doctor", "see a doctor",
+FILLER = frozenset(
+    "tell explain describe say says said show give list mention document documents report project lumi please "
+    "came come comes coming get gets got make makes made take takes took long often kind kinds thing things way ways do does did doing done".split()
 )
-PERSONAL_WORDS = frozenset("prescribe prescription dosage".split())
-
+_TOKEN = re.compile(r"[a-z0-9]+(?:\.[0-9]+)?")
 
 def stem(word: str) -> str:
     """A very small stemmer so 'image' and 'images', or 'train' and 'trained', match. It only strips a few endings and
@@ -53,20 +54,31 @@ def stem(word: str) -> str:
     return word
 
 
+def _us_to_uk(word: str) -> str:
+    """'optimizer' -> 'optimiser' (the documents use British spelling)."""
+    if len(word) > 6:
+        return re.sub(r"iz(e|ed|er|ers|es|ing|ation)$", r"is\1", word)
+    return word
+
+
 def tokens(text: str) -> list[str]:
-    """Lower-case meaningful words, simply stemmed. Stop words and filler are dropped."""
-    found = _TOKEN.findall(plain(text).lower())
-    return [stem(w) for w in found if w not in ENGLISH_STOP_WORDS and w not in FILLER]
+    """Lower-case meaningful words, simply stemmed. Stop words and filler are dropped. A word such as 'unimplemented' also
+    yields 'implement', so a question about what is "implemented" can find text about what is "unimplemented"."""
+    out: list[str] = []
+    for word in _TOKEN.findall(plain(text).lower()):
+        if word in ENGLISH_STOP_WORDS or word in FILLER:
+            continue
+        word = _us_to_uk(word)
+        out.append(stem(word))
+        prefixed = re.fullmatch(r"un([a-z]{5,}(?:ed|able|ly))", word)
+        if prefixed:
+            out.append(stem(prefixed.group(1)))
+    return out
 
 
 def _analyzer(text: str) -> list[str]:
     words = tokens(text)
     return words + [f"{a}_{b}" for a, b in zip(words, words[1:])]  # word pairs help with phrases such as "macro f1"
-
-
-def is_personal_medical_question(question: str) -> bool:
-    text = " " + " ".join(_TOKEN.findall(question.lower())) + " "
-    return any(f" {phrase} " in text for phrase in PERSONAL_PHRASES) or bool(set(text.split()) & PERSONAL_WORDS)
 
 
 @dataclass(frozen=True)
@@ -107,17 +119,33 @@ def best_excerpt(passage: Passage, query_tokens: set[str]) -> tuple[str, bool]:
 
 class Retriever:
     def __init__(self, corpus: Corpus):
+        import math
+
         self.corpus = corpus
-        self._texts = [f"{p.title} {p.section} {p.section} {plain(p.text)}" for p in corpus.passages]  # the heading counts double: it says what the passage is about
+        bodies = [plain(p.text) for p in corpus.passages]
+        headings = [f"{p.title} {p.section}" for p in corpus.passages]
         self._vectorizer = TfidfVectorizer(analyzer=_analyzer, sublinear_tf=True)
-        self._matrix = self._vectorizer.fit_transform(self._texts)
-        self._token_sets = [set(tokens(t)) for t in self._texts]
+        self._vectorizer.fit([f"{h} {b}" for h, b in zip(headings, bodies)])
+        self._body = self._vectorizer.transform(bodies)
+        self._heading = self._vectorizer.transform(headings)
+        self._token_sets = [set(tokens(f"{h} {b}")) for h, b in zip(headings, bodies)]
+        document_frequency: dict[str, int] = {}
+        for tokens_in_passage in self._token_sets:
+            for token in tokens_in_passage:
+                document_frequency[token] = document_frequency.get(token, 0) + 1
+        count = len(self._token_sets)
+        # How rare a word is in this corpus. A word the corpus never uses ("solar") is the rarest of all.
+        self._weight = lambda token: math.log((count + 1) / (document_frequency.get(token, 0) + 1)) + 1.0
 
     def search(self, question: str) -> list[Hit]:
         query_tokens = set(tokens(question))
         if len(query_tokens) < MIN_QUERY_WORDS:  # a single generic word is too vague to answer; refuse rather than guess
             return []
-        scores = (self._matrix @ self._vectorizer.transform([question]).T).toarray().ravel()
+        query = self._vectorizer.transform([question]).T
+        scores = (self._body @ query).toarray().ravel() + HEADING_WEIGHT * (self._heading @ query).toarray().ravel()
+        weights = {token: self._weight(token) for token in query_tokens}
+        total = sum(weights.values())
+        rarest = {token for token, weight in weights.items() if weight >= RAREST_SHARE * max(weights.values())}
         hits: list[Hit] = []
         for index in scores.argsort()[::-1][: 10 * MAX_SOURCES]:
             score = float(scores[index])
@@ -125,9 +153,9 @@ class Retriever:
                 break
             if len(plain(self.corpus.passages[index].text).split()) < MIN_PASSAGE_WORDS:
                 continue
-            matched = len(query_tokens & self._token_sets[index])
-            coverage = matched / len(query_tokens)
-            if matched < MIN_QUERY_WORDS or coverage < MIN_COVERAGE:
+            present = query_tokens & self._token_sets[index]
+            coverage = sum(weights[token] for token in present) / total
+            if len(present) < MIN_QUERY_WORDS or coverage < MIN_COVERAGE or not (rarest & present):
                 continue
             excerpt, truncated = best_excerpt(self.corpus.passages[index], query_tokens)
             hits.append(Hit(self.corpus.passages[index], round(score, 4), round(coverage, 3), excerpt, truncated))

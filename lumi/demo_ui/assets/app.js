@@ -18,7 +18,7 @@
   // Already shown in plain words next to the scores, so it is not repeated in the warnings box.
   var HIDDEN_WARNINGS = ["MODEL_SCORE_NOT_CLINICAL_CERTAINTY"];
 
-  var state = { health: null, busy: { skin: false, lab: false, ask: false, rag: false }, results: { skin: null, lab: null } };
+  var state = { health: null, busy: { skin: false, lab: false, ask: false, rag: false, chat: false }, results: { skin: null, lab: null }, lastKind: null };
   var uploaders = {};
 
   /* ------------------------------------------------------------------ small DOM helpers */
@@ -136,7 +136,7 @@
       .then(function (response) { if (!response.ok) throw new Error("health"); return response.json(); })
       .then(function (data) { state.health = data; })
       .catch(function () { state.health = null; })
-      .then(renderHealth);
+      .then(function () { renderHealth(); chatRefresh(); });
   }
 
   function renderAboutModel() {
@@ -645,7 +645,9 @@
     var copy = JSON.parse(JSON.stringify(body));
     if (copy.result && copy.result.explanation_image) delete copy.result.explanation_image.image_base64;
     state.results[kind] = copy;
+    state.lastKind = kind;
     refreshAskSources();
+    chatRefresh();
   }
 
   function refreshAskSources() {
@@ -814,6 +816,334 @@
       .then(function () { setBusy("rag", false, button, "Search"); finish(container); });
   }
 
+  /* ------------------------------------------------------------------ floating helper ("Ask LUMI") */
+  // What it does: sends your question to the SAME endpoints as the Ask a question page (/api/v1/ask, about a result you made
+  // on this page) or the Reference search page (/api/v1/rag-demo, quotes from LUMI's project documents) and shows what comes
+  // back. It writes no answers of its own. The only fixed text is labelled "Guide". Messages live only in this page's memory.
+
+  var chat = { open: false, mode: "docs", chose: false, started: false };
+  var CHAT_LIMIT = { docs: 300, result: 500 };
+  var DOC_QUESTIONS = ["Was the model trained from scratch?", "What was the word error rate of the OCR?", "What is Grad-CAM?"];
+  var CHAT_ACTIONS = [
+    { label: "How do I use LUMI?", kind: "guide-use" },
+    { label: "What can LUMI do?", kind: "guide-can" },
+    { label: "Help me understand my analysis result", kind: "result-help" },
+    { label: "Search LUMI research documents", kind: "docs-help" },
+    { label: "What are LUMI's limitations?", kind: "docs-limits" }
+  ];
+  var KIND_NAME = { skin: "skin photo", lab: "lab report" };
+
+  function postJson(path, payload, key) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 30000);
+    return fetch(path, { method: "POST", headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal })
+      .then(function (response) {
+        clearTimeout(timer);
+        return response.text().then(function (text) {
+          var body = null;
+          try { body = JSON.parse(text); } catch (e) { body = null; }
+          return { status: response.status, body: body, retryAfter: response.headers.get("Retry-After"), endpoint: path };
+        });
+      })
+      .catch(function (error) { clearTimeout(timer); throw error; });
+  }
+
+  function referenceSearchOff() { return !!(state.health && !state.health.reference_search); }
+  function resultKind() {
+    var page = currentPage();
+    if ((page === "skin" || page === "lab") && state.results[page]) return page;
+    return state.lastKind && state.results[state.lastKind] ? state.lastKind : null;
+  }
+
+  function botMessage(label, labelKind) {
+    var box = h("div", "chat-msg bot");
+    if (label) box.appendChild(badge(labelKind || "neutral", label));
+    chatLogNode().appendChild(box);
+    scrollChat();
+    return box;
+  }
+  function chatLogNode() { return $("chat-log"); }
+  function scrollChat() { var log = chatLogNode(); log.scrollTop = log.scrollHeight; }
+  function userMessage(text) {
+    var box = h("div", "chat-msg user", text);
+    chatLogNode().appendChild(box);
+    scrollChat();
+  }
+  function lines(box, items) { items.forEach(function (text) { box.appendChild(para(null, text)); }); }
+  function bullets(box, items) {
+    var list = h("ul");
+    items.forEach(function (text) { list.appendChild(h("li", null, text)); });
+    box.appendChild(list);
+  }
+  function suggestions(box, questions, mode) {
+    var wrap = h("div", "chips");
+    questions.forEach(function (q) {
+      var chip = h("button", "chip", q);
+      chip.type = "button";
+      chip.addEventListener("click", function () { chatSend(q, mode); });
+      wrap.appendChild(chip);
+    });
+    box.appendChild(wrap);
+  }
+
+  function welcome() {
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["Hi! I'm the LUMI helper. I can:"]);
+    bullets(box, [
+      "read back facts from a result you made on the Skin Analysis or Lab Reports page,",
+      "find and quote passages from LUMI's own project documents, with their sources,",
+      "show you how to use this app."
+    ]);
+    lines(box, ["LUMI does not diagnose, and I do not give medical advice or make up answers. I only repeat what is in your result or in the documents. If I can't find support, I will say so."]);
+  }
+
+  function guideUse() {
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["Here is how to use LUMI:"]);
+    bullets(box, [
+      "1. Open Skin Analysis or Lab Reports from the menu.",
+      "2. Choose a practice photo or a made-up (synthetic) report. Never use a real patient's file.",
+      "3. Press the button and wait for the result.",
+      "4. Come back here. Choose My result to ask about it, or LUMI documents to search the project write-ups.",
+      "5. If asked for an API key, enter the key shown in the terminal where LUMI was started."
+    ]);
+  }
+
+  function guideCan() {
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["LUMI is a research prototype. It does not diagnose, and it does not replace a doctor."]);
+    bullets(box, [
+      "Skin Analysis: scores a skin photo against six classes and can show an attention map. It has not been clinically validated, and it has not been checked for children.",
+      "Lab Reports: reads the text in a report image. It was tested only on practice reports.",
+      "Ask a question and this helper: read back facts from your own result.",
+      "Reference search and this helper: quote passages from LUMI's project documents. Those are not medical sources.",
+      "Chest X-ray: still in development, so nothing is analysed."
+    ]);
+  }
+
+  function noResultMessage() {
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["I don't have a result to look at yet. Please run an analysis first, then ask me again."]);
+    var links = h("div", "chat-links");
+    [["Skin Analysis", "#skin"], ["Lab Reports", "#lab"]].forEach(function (pair) {
+      var a = h("a", "btn secondary", pair[0]);
+      a.href = pair[1];
+      links.appendChild(a);
+    });
+    box.appendChild(links);
+  }
+
+  function resultHelp() {
+    var kind = resultKind();
+    if (!kind) { noResultMessage(); return; }
+    setMode("result", true);
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["I can read back these facts from your latest " + KIND_NAME[kind] + " result. Choose one, or type your own question:"]);
+    suggestions(box, EXAMPLES[kind].filter(function (q) { return !/cancer|normal/i.test(q); }), "result");
+  }
+
+  function docsHelp() {
+    setMode("docs", true);
+    var box = botMessage("Guide", "neutral");
+    lines(box, ["Ask about how LUMI was built or tested. I will quote the matching passages and show where they come from. Try one of these, or type your own:"]);
+    suggestions(box, DOC_QUESTIONS, "docs");
+  }
+
+  function describeError(res) {
+    var error = res.body && res.body.error ? res.body.error : null;
+    var code = error && typeof error.code === "string" ? error.code : null;
+    var entry = code ? ERRORS[code] : null;
+    if (!entry) {
+      if (res.status === 404 && res.endpoint === "/api/v1/rag-demo") entry = ["Document search is switched off on this server", "Start LUMI with LUMI_RAG_DEMO=1 (scripts/run_dev.sh does this) and reload the page."];
+      else if (res.status === 401) entry = ERRORS.unauthorized;
+      else if (res.status === 429) entry = ERRORS.rate_limited;
+      else if (res.status >= 500) entry = ERRORS.internal_error;
+      else entry = ["That request could not be completed", "Try again with a different question."];
+    }
+    var hint = entry[1];
+    if (res.status === 429 && res.retryAfter && /^[0-9]+$/.test(res.retryAfter)) hint = "Try again in about " + res.retryAfter + " seconds.";
+    return [entry[0], hint];
+  }
+
+  function showError(title, hint) {
+    var box = botMessage("Problem", "err");
+    lines(box, [title, hint]);
+    box.setAttribute("role", "alert");
+  }
+
+  function showRefusal(body) {
+    var box = botMessage("No answer found", "warn");
+    box.appendChild(para(null, String(body.answer || REFUSAL)));
+    if (body.explanation) box.appendChild(para("fine", String(body.explanation)));
+  }
+
+  function showWarnings(box, warnings) {
+    (warnings || []).slice(0, 2).forEach(function (w) { box.appendChild(para("fine", warningText(w))); });
+  }
+
+  function showResultAnswer(body, kind) {
+    if ((body.result || {}).answerable === false) { showRefusal(body); return; }
+    var box = botMessage("From your result", "info");
+    box.appendChild(para(null, String(body.answer)));
+    box.appendChild(para("fine", "From your latest " + KIND_NAME[kind] + " result, read back by fixed rules."));
+    showWarnings(box, body.warnings);
+  }
+
+  function showDocAnswer(body) {
+    var result = body.result || {};
+    if (result.answerable === false || !(result.sources || []).length) { showRefusal(body); return; }
+    var box = botMessage("From LUMI documents", "info");
+    box.appendChild(para(null, "I found " + result.sources.length + (result.sources.length === 1 ? " passage" : " passages") + " in LUMI's project documents. These are quotes, not my own words:"));
+    result.sources.forEach(function (source) {
+      var card = h("div", "chat-source");
+      var head = h("div");
+      add(head, badge("info", source.citation), strong(" " + String(source.title)));
+      add(card, head,
+        para("fine", String(source.section) + " · passage " + String(source.passage_id) + " · lines " + String(source.lines)),
+        para("chat-excerpt", String(source.excerpt)));
+      box.appendChild(card);
+    });
+    showWarnings(box, body.warnings);
+  }
+
+  function chatBusy(on) {
+    state.busy.chat = on;
+    $("chat-send").disabled = on;
+    chatLogNode().setAttribute("aria-busy", on ? "true" : "false");
+  }
+
+  // `forcedMode` is used by the suggestion buttons, which know where their question belongs. Typed questions use the chosen mode.
+  function chatSend(text, forcedMode) {
+    var question = String(text === undefined ? $("chat-input").value : text).trim();
+    if (state.busy.chat) return;
+    if (!question) { $("chat-input").focus(); return; }
+    var mode = forcedMode || chat.mode;
+    if (mode !== chat.mode) setMode(mode, true);
+    if (question.length > CHAT_LIMIT[mode]) { userMessage(question.slice(0, 60) + "…"); showError("That question is too long", "Please keep it under " + CHAT_LIMIT[mode] + " characters."); return; }
+    userMessage(question);
+    $("chat-input").value = "";
+    var key = getKey();
+    if (!key) { showError("I need your API key", "Select the API key button at the top right of the page and enter the key, then ask again."); setKeyPanel(true, "Enter your API key to continue."); return; }
+    var kind = null;
+    var path, payload;
+    if (mode === "result") {
+      kind = resultKind();
+      if (!kind) { noResultMessage(); return; }
+      path = "/api/v1/ask";
+      payload = { question: question, evidence: state.results[kind] };
+    } else {
+      if (referenceSearchOff()) { showError("Document search is switched off on this server", "Start LUMI with LUMI_RAG_DEMO=1 (scripts/run_dev.sh does this) and reload the page."); return; }
+      path = "/api/v1/rag-demo";
+      payload = { question: question };
+    }
+    chatBusy(true);
+    var waiting = botMessage(null);
+    waiting.appendChild(para("fine", mode === "result" ? "Looking in your result…" : "Searching LUMI's documents…"));
+    postJson(path, payload, key)
+      .then(function (res) {
+        waiting.remove();
+        if (!res.body || typeof res.body !== "object" || res.body.error || res.status >= 400) {
+          var d = describeError(res);
+          showError(d[0], d[1]);
+          if (res.status === 401) setKeyPanel(true, "Enter a valid API key to continue.");
+        } else if (mode === "result") showResultAnswer(res.body, kind);
+        else showDocAnswer(res.body);
+      })
+      .catch(function (error) {
+        waiting.remove();
+        var timedOut = error && error.name === "AbortError";
+        showError(timedOut ? "That took too long" : "I could not reach the LUMI server", timedOut ? "Please try again." : "Is it still running? Start it again with scripts/start_demo.command.");
+      })
+      .then(function () { chatBusy(false); $("chat-input").focus(); });
+  }
+
+  function runAction(kind) {
+    var labels = CHAT_ACTIONS.filter(function (a) { return a.kind === kind; })[0];
+    if (kind === "docs-limits") { chatSend("What limitations does the skin model have?", "docs"); return; }
+    userMessage(labels.label);
+    if (kind === "guide-use") guideUse();
+    else if (kind === "guide-can") guideCan();
+    else if (kind === "result-help") resultHelp();
+    else if (kind === "docs-help") docsHelp();
+  }
+
+  function setMode(mode, quiet) {
+    chat.mode = mode;
+    if (!quiet) chat.chose = true;
+    $("chat-mode-docs").setAttribute("aria-pressed", mode === "docs" ? "true" : "false");
+    $("chat-mode-result").setAttribute("aria-pressed", mode === "result" ? "true" : "false");
+    $("chat-input").maxLength = CHAT_LIMIT[mode];
+    $("chat-input").placeholder = mode === "result" ? "Ask about your result…" : "Ask about LUMI's documents…";
+    chatRefresh();
+  }
+
+  function chatRefresh() {
+    var kind = resultKind();
+    var docsOff = referenceSearchOff();
+    $("chat-mode-docs").disabled = docsOff;
+    var context = $("chat-context");
+    if (chat.mode === "result") context.textContent = kind ? "Looking in: your latest " + KIND_NAME[kind] + " result" : "No result yet. Run an analysis first.";
+    else context.textContent = docsOff ? "Document search is switched off on this server." : "Looking in: LUMI project documents (not medical sources)";
+    var box = $("chat-actions");
+    clear(box);
+    CHAT_ACTIONS.forEach(function (action) {
+      if (docsOff && (action.kind === "docs-help" || action.kind === "docs-limits")) return;
+      var chip = h("button", "chip", action.label);
+      chip.type = "button";
+      chip.addEventListener("click", function () { runAction(action.kind); });
+      box.appendChild(chip);
+    });
+  }
+
+  function openChat() {
+    if (!chat.started) {
+      chat.started = true;
+      welcome();
+    }
+    var page = currentPage();
+    // On the Skin Analysis or Lab Reports page, with a result already made, start by looking at that result (unless the user chose a mode).
+    if ((page === "skin" || page === "lab") && state.results[page] && !chat.chose) setMode("result", true);
+    else chatRefresh();
+    chat.open = true;
+    $("chat-panel").hidden = false;
+    $("chat-launcher").setAttribute("aria-expanded", "true");
+    $("chat-input").focus();
+  }
+
+  function hideChat(returnFocus) {
+    chat.open = false;
+    $("chat-panel").hidden = true;
+    $("chat-launcher").setAttribute("aria-expanded", "false");
+    if (returnFocus) $("chat-launcher").focus();
+  }
+
+  function newChat() {
+    clear(chatLogNode());
+    chat.started = false;
+    chat.chose = false;
+    setMode("docs", true);
+    chat.started = true;
+    welcome();
+  }
+
+  function initChat() {
+    $("chat-launcher").addEventListener("click", function () { if (chat.open) hideChat(false); else openChat(); });
+    $("chat-min").addEventListener("click", function () { hideChat(true); });
+    $("chat-close").addEventListener("click", function () { newChat(); hideChat(true); });
+    $("chat-clear").addEventListener("click", function () { newChat(); $("chat-input").focus(); });
+    $("chat-mode-docs").addEventListener("click", function () { setMode("docs", false); });
+    $("chat-mode-result").addEventListener("click", function () { setMode("result", false); });
+    $("chat-form").addEventListener("submit", function (e) { e.preventDefault(); chatSend(); });
+    $("chat-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatSend(); }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && chat.open && $("key-panel").hidden) hideChat(true);
+    });
+    window.addEventListener("hashchange", chatRefresh);
+    chatRefresh();
+  }
+
   /* ------------------------------------------------------------------ start-up */
 
   function init() {
@@ -824,6 +1154,7 @@
     $("ask-go").addEventListener("click", ask);
     $("rag-go").addEventListener("click", ragAsk);
     renderRagExamples();
+    initChat();
     document.querySelectorAll("input[name=ask-source]").forEach(function (r) { r.addEventListener("change", renderExamples); });
     refreshAskSources();
 

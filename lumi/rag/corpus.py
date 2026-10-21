@@ -13,6 +13,7 @@ from pathlib import Path
 MAX_DOCUMENTS = 50
 MAX_FILE_BYTES = 2_000_000
 MIN_WORDS = 40  # small neighbouring blocks in one section are joined until a passage has about this many words
+MIN_TAIL_WORDS = 20  # a last piece shorter than this is joined to the previous piece of the same block
 MAX_WORDS = 160  # a passage never grows past this (a single longer line is cut at sentence ends)
 ALLOWED_SOURCE_TYPES = ("project_document", "approved_reference")
 DOC_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,40}$")
@@ -134,7 +135,12 @@ def split_markdown(text: str) -> list[tuple[str, int, int, str]]:
                         piece = []
                     piece.append((number, part))
             if piece:
-                passages.append((block["section"], piece[0][0], piece[-1][0], "\n".join(t for _, t in piece)))
+                tail = (block["section"], piece[0][0], piece[-1][0], "\n".join(t for _, t in piece))
+                last = passages[-1] if passages else None
+                if last and last[0] == block["section"] and _words(plain(tail[3])) < MIN_TAIL_WORDS and last[2] + 1 >= tail[1] and _words(last[3]) + _words(tail[3]) <= MAX_WORDS + MIN_TAIL_WORDS:
+                    passages[-1] = (last[0], last[1], tail[2], last[3] + "\n" + tail[3])  # a tiny last piece is kept with the one before it
+                else:
+                    passages.append(tail)
             continue
         joined = sum(_words(t) for b in group for _, t in b["lines"])
         if group and (group[0]["section"] != block["section"] or joined >= MIN_WORDS or joined + size > MAX_WORDS):
