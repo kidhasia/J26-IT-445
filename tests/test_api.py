@@ -127,6 +127,21 @@ def test_question_too_long(client):
     assert_error(post(client, question="a" * 1001), 422, "invalid_field", "question")
 
 
+def test_question_about_the_unfinished_chest_xray_is_not_answered(client):
+    response = client.post("/api/v1/analyze", data={"input_type": "chest_xray", "question": "What does this show?"},
+                           files={"file": ("x.png", make_png(), "image/png")})
+    body = response.json()
+    assert response.status_code == 200 and body["answer"] is None
+    assert "QUESTION_NOT_ANSWERED" in " ".join(body["warnings"])
+
+
+def test_question_about_a_pdf_report_is_not_answered(client):
+    response = client.post("/api/v1/analyze", data={"input_type": "lab_report", "question": "What was the sodium value?"},
+                           files={"file": ("r.pdf", make_pdf(), "application/pdf")})
+    body = response.json()
+    assert response.status_code == 200 and body["answer"] is None  # a PDF is not read yet, so there is no evidence
+
+
 def test_blank_question_is_treated_as_absent(client):
     response = post(client, question="   ")
     assert response.status_code == 200

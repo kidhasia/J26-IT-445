@@ -10,15 +10,15 @@
   var SVG_NS = "http://www.w3.org/2000/svg";
   var MAX_BYTES = 10 * 1024 * 1024;
   var ALLOWED_TYPES = ["image/png", "image/jpeg"];
-  var PAGES = ["overview", "skin", "lab", "xray", "about"];
-  var TITLES = { overview: "Overview", skin: "Skin Analysis", lab: "Lab Reports", xray: "Chest X-ray", about: "About LUMI" };
+  var PAGES = ["overview", "skin", "lab", "ask", "xray", "about"];
+  var TITLES = { overview: "Overview", skin: "Skin Analysis", lab: "Lab Reports", ask: "Ask a question", xray: "Chest X-ray", about: "About LUMI" };
   var FALLBACK_LABEL = "AI attention visualisation — not a diagnosis or proof of correctness.";
   var BASE64_ONLY = new RegExp("^[A-Za-z0-9+/=]+$");
   var REQUEST_TIMEOUT_MS = 120000;
   // Already shown in plain words next to the scores, so it is not repeated in the warnings box.
   var HIDDEN_WARNINGS = ["MODEL_SCORE_NOT_CLINICAL_CERTAINTY"];
 
-  var state = { health: null, busy: { skin: false, lab: false } };
+  var state = { health: null, busy: { skin: false, lab: false, ask: false }, results: { skin: null, lab: null } };
   var uploaders = {};
 
   /* ------------------------------------------------------------------ small DOM helpers */
@@ -615,8 +615,10 @@
           renderRequestError(container, res);
         } else if (kind === "skin") {
           renderSkin(container, body, wantsMap, previewUrl);
+          rememberResult("skin", body);
         } else {
           renderLab(container, body);
+          rememberResult("lab", body);
         }
       })
       .catch(function (error) { renderNetworkError(container, error); })
@@ -627,6 +629,104 @@
       });
   }
 
+  /* ------------------------------------------------------------------ ask a question about a result */
+
+  var EXAMPLES = {
+    skin: ["What was the predicted skin class?", "What was the top score?", "What limitations apply to this result?", "Is this cancer?"],
+    lab: ["Which lab values were not found?", "What was the reported haemoglobin value?", "Which fields need review?", "What limitations apply to this result?", "Is my haemoglobin normal?"]
+  };
+  var REFUSAL = "I cannot answer this from the available evidence.";
+
+  // Kept only in this page's memory (never stored). The attention-map picture is left out: the answerer ignores it.
+  function rememberResult(kind, body) {
+    if (!body || body.error || !body.result || body.result.status !== "completed") return;
+    var copy = JSON.parse(JSON.stringify(body));
+    if (copy.result && copy.result.explanation_image) delete copy.result.explanation_image.image_base64;
+    state.results[kind] = copy;
+    refreshAskSources();
+  }
+
+  function refreshAskSources() {
+    ["skin", "lab"].forEach(function (kind) {
+      var radio = $("ask-src-" + kind);
+      var have = !!state.results[kind];
+      radio.disabled = !have;
+      $("ask-" + kind + "-note").textContent = have ? "(ready)" : (kind === "skin" ? "(none yet; use Skin Analysis first)" : "(none yet; use Lab Reports first)");
+      if (have && !document.querySelector("input[name=ask-source]:checked")) radio.checked = true;
+    });
+    renderExamples();
+  }
+
+  function chosenSource() {
+    var checked = document.querySelector("input[name=ask-source]:checked");
+    return checked && !checked.disabled ? checked.value : null;
+  }
+
+  function renderExamples() {
+    var box = $("ask-examples");
+    clear(box);
+    var source = chosenSource();
+    (source ? EXAMPLES[source] : []).forEach(function (text) {
+      var chip = h("button", "chip", text);
+      chip.type = "button";
+      chip.addEventListener("click", function () { $("ask-question").value = text; $("ask-question").focus(); });
+      box.appendChild(chip);
+    });
+  }
+
+  function renderAnswer(container, body) {
+    clear(container);
+    var result = body.result || {};
+    var refused = result.answerable === false;
+    var c = card(refused ? "No answer from the evidence" : "Answer");
+    c.appendChild(para("answer-text", String(body.answer || REFUSAL)));
+    if (refused) c.appendChild(callout("info", "info", h("div", null, String(body.explanation || "The supplied result does not contain what is needed."))));
+    else if (body.explanation) c.appendChild(para("fine", String(body.explanation)));
+    container.appendChild(c);
+    var warnings = warningsCard(body.warnings);
+    if (warnings) container.appendChild(warnings);
+    container.appendChild(boundaryCard(body.clinical_boundary_notice));
+  }
+
+  function ask() {
+    if (state.busy.ask) return;
+    var error = $("ask-error");
+    error.hidden = true;
+    var source = chosenSource();
+    var question = $("ask-question").value.trim();
+    if (!source) { error.textContent = "Analyse a skin photo or a lab report first, then choose it here."; error.hidden = false; return; }
+    if (!question) { error.textContent = "Type a question first."; error.hidden = false; $("ask-question").focus(); return; }
+    var key = getKey();
+    if (!key) { setKeyPanel(true, "Enter your API key to continue."); return; }
+
+    var container = $("ask-result");
+    var button = $("ask-go");
+    setBusy("ask", true, button, "Ask");
+    showLoading(container, "Looking in the result…");
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 30000);
+    fetch("/api/v1/ask", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ question: question, evidence: state.results[source] }),
+      signal: controller.signal
+    })
+      .then(function (response) {
+        clearTimeout(timer);
+        return response.text().then(function (text) {
+          var body = null;
+          try { body = JSON.parse(text); } catch (e) { body = null; }
+          return { status: response.status, body: body, retryAfter: response.headers.get("Retry-After") };
+        });
+      })
+      .then(function (res) {
+        if (!res.body || typeof res.body !== "object" || res.body.error || res.status >= 400) renderRequestError(container, res);
+        else renderAnswer(container, res.body);
+      })
+      .catch(function (err) { clearTimeout(timer); renderNetworkError(container, err); })
+      .then(function () { setBusy("ask", false, button, "Ask"); finish(container); });
+  }
+
   /* ------------------------------------------------------------------ start-up */
 
   function init() {
@@ -634,6 +734,9 @@
     uploaders.lab = createUploader("lab");
     $("skin-go").addEventListener("click", function () { analyze("skin"); });
     $("lab-go").addEventListener("click", function () { analyze("lab"); });
+    $("ask-go").addEventListener("click", ask);
+    document.querySelectorAll("input[name=ask-source]").forEach(function (r) { r.addEventListener("change", renderExamples); });
+    refreshAskSources();
 
     $("key-toggle").addEventListener("click", function () { setKeyPanel($("key-panel").hidden); });
     $("key-input").addEventListener("input", updateKeyState);

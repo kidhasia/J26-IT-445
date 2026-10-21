@@ -3,10 +3,12 @@
 Everything below runs on your MacBook. Nothing is sent over the internet. Time needed: about 10 minutes.
 
 ## Before you start (once)
+Run `./scripts/demo_preflight.sh` first. It only reads things and must end with `READY`. A backup plan for failures is in `docs/SUBMISSION_PLAN.md` §4.
+
 Open a terminal in VS Code and run:
 ```bash
 cd "/Users/kidhasia/Desktop/Research Stuff"
-.venv/bin/python -m pytest -q          # expect: all tests pass (368 on 2026-10-18)
+.venv/bin/python -m pytest -q          # expect: all tests pass (485 on 2026-10-18)
 ls models/skin_pad_ufes20/              # you should see a folder named 20261018T072750Z
 ```
 If `models/` is missing, the trained model is not on this machine; retrain with the command in `docs/MODEL_CARD_skin_pad_ufes20.md` §8 (about 7 minutes).
@@ -24,9 +26,9 @@ Wait for `Application startup complete.` and leave that window open. The script 
 ## Step 2: open the interface
 Browser: **http://localhost:8000/** (the developer page is still at http://localhost:8000/docs).
 
-You will see a menu on the left (on a phone it runs across the top) with five pages: **Overview, Skin Analysis, Lab Reports, Chest X-ray, About LUMI**. At the top right, a green **"Server connected"** label and an **API key** button (the key is already filled in for local use).
+You will see a menu on the left (on a phone it runs across the top) with six pages: **Overview, Skin Analysis, Lab Reports, Ask a question, Chest X-ray, About LUMI**. At the top right, a green **"Server connected"** label and an **API key** button (the key is already filled in for local use).
 
-On **Overview**, the tool cards show their real status taken from the server: Skin Analysis and Lab Reports are green; Chest X-ray says **In development** and Medical questions says **API only** (the question feature exists as `POST /api/v1/ask` but is not in this interface; see the README). If Skin Analysis shows "Model not set up" in red, the model was not found (see "If something goes wrong").
+On **Overview**, the tool cards show their real status taken from the server: Skin Analysis and Lab Reports are green; Chest X-ray says **In development** and Medical questions says **Small prototype** (it opens the **Ask a question** page). If Skin Analysis shows "Model not set up" in red, the model was not found (see "If something goes wrong").
 
 ## Step 3: show each working feature
 | What to show | Where | File to upload | What you should see |
@@ -35,6 +37,7 @@ On **Overview**, the tool cards show their real status taken from the server: Sk
 | Attention map | Same page, with **Show attention map (Grad-CAM)** switched on (it is by default) | the same photo | **"Attention map (experimental)"** under the label *"AI attention visualisation — not a diagnosis or proof of correctness."*, your photo beside the same photo with a coloured map (warmer = more influence), a colour scale, and a collapsible list of what the map can and cannot tell you. Switch it off and analyze again: the map disappears and the scores stay the same |
 | Lab-report reading | **Lab Reports**, then **Read report** | `data/synthetic/lab_reports/syn_0001_complete.png` (run `.venv/bin/python scripts/make_synthetic_lab_reports.py` first if the folder is empty) | A yellow "Check every value against the original report" box and a table of 6 rows (test, result, unit, range as printed), each marked **Parsed** |
 | Missing values flagged | **Lab Reports** | `syn_0002_missing_value.png` | Haemoglobin's result shown as **Not found** with "Check against the original", not guessed |
+| Questions about a result | **Ask a question**, after you have analysed a photo and a report | (none; it uses the results already on screen) | Pick the lab result and ask "Which lab values were not found?" and "What was the reported haemoglobin value?"; pick the skin result and ask "What limitations apply to this result?". Then ask "Is this cancer?" and "Is my haemoglobin normal?": both are **refused** with "I cannot answer this from the available evidence.". The answer shows an evidence-not-verified warning |
 | Chest X-ray is unfinished | **Chest X-ray** | (nothing to upload) | A page that says it is **In development**, that there is no chest X-ray model, and that it makes no predictions. It has no upload control on purpose |
 | Limits and data | **About LUMI** | | What works, the PAD-UFES-20 dataset, the model's measured score from the server, and the limitations, including that it is not validated for children |
 | Honest refusal without a model | Stop the server (`Ctrl+C`), run `LUMI_SKIN_MODEL_PATH=/nonexistent ./scripts/run_dev.sh`, reload | the same skin photo | Overview shows "Model not set up" in red, and Skin Analysis explains that no analysis was done |
@@ -54,7 +57,7 @@ Optional proof that the interface works in a real browser (about 1 minute; needs
 ```bash
 .venv/bin/python scripts/ui_smoke_test.py --skin-image data/raw/PAD-UFES-20/images/imgs_part_1/PAT_100_393_595.png --lab-image data/synthetic/lab_reports/syn_0001_complete.png
 ```
-Expect `80 of 80 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
+Expect `97 of 97 browser checks passed`. Screenshots are saved in `data/processed/ui_smoke/` (not in Git).
 
 Optional proof of the lab-report reading accuracy (about 10 seconds; needs Tesseract; synthetic reports only):
 ```bash
@@ -77,7 +80,7 @@ Expect `identical predicted class for 454 of 454` and one image refused as too l
 ## What to say honestly
 **Working:** secure API; reading synthetic lab reports; a trained skin-lesion model that answers through the API; honest refusal when no model is set up; dataset inspection; governance records; 368 automated tests and 80 real-browser checks.
 
-**Not finished:** chest X-ray analysis; image-based medical question answering (only a small rule-based `/api/v1/ask` exists: it answers from a supplied result, never from the image, and refuses everything else; it is not in the interface); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
+**Not finished:** chest X-ray analysis; image-based medical question answering (only a small rule-based `/api/v1/ask` exists: it answers from a result you already produced, never from the image, and refuses everything else; it has an **Ask a question** page); attention maps exist only for skin photos, are coarse (8 by 8) and have not been judged by clinicians; PDF reports; OCR accuracy measurement on real reports; any model for children.
 
 **Do not say:** that the model is clinically validated, that it is accurate enough for patients, or that it works for children. Do not say the heatmap shows where the disease is: it shows what influenced the model, and a clinician has not judged whether it is useful. The honest numbers are accuracy 0.63 and macro-F1 0.54 on 455 held-out images from adult-dominated data, with a melanoma figure based on only 11 cases.
 

@@ -143,7 +143,7 @@ def test_nothing_is_loaded_from_other_websites(html_text, js, css):
 
 
 def test_the_page_calls_only_the_servers_own_relative_endpoints(js):
-    assert re.findall(r"""fetch\(\s*["']([^"']+)["']""", js) == ["/health", "/api/v1/analyze"]
+    assert re.findall(r"""fetch\(\s*["']([^"']+)["']""", js) == ["/health", "/api/v1/analyze", "/api/v1/ask"]
     assert 'headers: { "Authorization": "Bearer " + key }' in js
 
 
@@ -250,8 +250,8 @@ def page(html_text) -> Page:
     return Page(html_text)
 
 
-def test_navigation_has_the_five_required_entries(page):
-    assert page.nav == ["overview", "skin", "lab", "xray", "about"]
+def test_navigation_has_the_six_required_entries(page):
+    assert page.nav == ["overview", "skin", "lab", "ask", "xray", "about"]
     for name in page.nav:
         assert f"#{name}" in page.link_hrefs and f"page-{name}" in page.sections
 
@@ -267,7 +267,7 @@ def test_chest_xray_page_is_honest_and_offers_nothing_to_run(page):
 
 def test_overview_states_the_real_status_of_every_tool(html_text, page):
     overview = page.sections["page-overview"]["html"]
-    for phrase in ("Not for clinical use", "Skin Analysis", "Lab Reports", "Chest X-ray", "Medical questions", "In development", "API only"):
+    for phrase in ("Not for clinical use", "Skin Analysis", "Lab Reports", "Chest X-ray", "Medical questions", "In development", "Small prototype"):
         assert phrase in overview, phrase
     assert html_text.count("data-status-for=") == 2  # skin and lab come from the live server; chest and questions are fixed text
 
@@ -315,7 +315,7 @@ def test_every_form_control_has_a_label_and_every_image_has_alt_text(page, js):
 
 
 def test_results_are_announced_and_errors_are_alerts(html_text, js):
-    assert html_text.count('aria-live="polite"') == 2
+    assert html_text.count('aria-live="polite"') == 3
     assert html_text.count('role="alert"') >= 3 and 'role="status"' in html_text
     assert 'setAttribute("aria-busy", "true")' in js and 'removeAttribute("aria-busy")' in js
 

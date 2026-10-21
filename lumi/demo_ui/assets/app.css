@@ -290,3 +290,14 @@ tr.needs-check { background: #fffaf0; }
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
 }
+
+/* Ask a question */
+.choice-group { border: 0; padding: 0; margin: 0 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.choice { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.choice input { margin-top: 4px; }
+.text-input { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 12px; resize: vertical; }
+.text-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.chip { font: inherit; font-size: 0.86rem; color: var(--ink); background: var(--neutral-soft); border: 1px solid var(--line-strong); border-radius: 999px; padding: 6px 12px; cursor: pointer; text-align: left; }
+.chip:hover { background: var(--surface); }
+.answer-text { font-size: 1.02rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }

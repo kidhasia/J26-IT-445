@@ -5,7 +5,7 @@ Research prototype for **decision support only**. It does not diagnose and does 
 Current state (see the status table below for exactly what is real):
 API with validation, API-key auth, rate limiting and privacy-safe logging; lab-report OCR on PNG/JPEG images (local Tesseract);
 a skin-lesion classifier fine-tuned on the public PAD-UFES-20 dataset (6 classes, adults almost exclusively).
-Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray analysis and image-based medical VQA are **not implemented**; a small rule-based question-answering endpoint exists (see below). Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
+A `question` sent with a skin photo or lab report to `/api/v1/analyze` is answered in the same response (field `answer`) from that request's own result, using the small rule-based answerer described below. Skin results can optionally include a Grad-CAM attention map (a coarse picture of what influenced the model; not a diagnosis). Chest X-ray analysis and image-based medical VQA are **not implemented**; a small rule-based question-answering endpoint exists (see below). Scope and open questions: [docs/SCOPE_REVIEW.md](docs/SCOPE_REVIEW.md).
 
 
 ## What works today
@@ -27,7 +27,7 @@ The skin model is a research prototype: not clinically validated, and not shown 
 ## Start the demo page (easiest way)
 
 Double-click `scripts/start_demo.command` in Finder, or run `./scripts/run_dev.sh` in a terminal, then open **http://localhost:8000/**.
-The interface has five pages (Overview, Skin Analysis, Lab Reports, Chest X-ray, About LUMI). It shows what is really working, lets you drop in a practice file, and explains the result in plain language. The Chest X-ray page is deliberately an "In development" page with no upload, because no chest X-ray model exists yet.
+The interface has six pages (Overview, Skin Analysis, Lab Reports, Ask a question, Chest X-ray, About LUMI). It shows what is really working, lets you drop in a practice file, and explains the result in plain language. The Chest X-ray page is deliberately an "In development" page with no upload, because no chest X-ray model exists yet.
 The developer page is at http://localhost:8000/docs. The demo page is off unless `LUMI_DEMO_UI=1` (the start script sets it),
 so a real deployment serves only the API.
 
@@ -125,10 +125,12 @@ curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Authorization: Bearer local-dev-key-not-for-production" \
   -F input_type=skin_image \
   -F "file=@/path/to/image.png;type=image/png" \
-  -F "question=What does this show?"
+  -F "question=What was the predicted skin class?"
 ```
 
 ## Asking questions about a result
+
+In the web interface, use the **Ask a question** page: analyse a skin photo or a lab report first, then choose that result, type or pick a question, and select **Ask**. The same feature is available through the API:
 
 `POST /api/v1/ask` answers simple factual questions about **one analysis result you already have** (the JSON that
 `/api/v1/analyze` returned for a skin photo or a lab report). It uses fixed rules only: no language model, no internet, nothing stored.

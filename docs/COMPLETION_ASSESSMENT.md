@@ -1,6 +1,6 @@
 # Completion assessment (2026-10-18)
 
-Made from the repository as it is today (3,887 lines of Python in `lumi/`, 17 test files with 431 passing tests, a 1,236-line web interface, 10 documents), the proposal (`J26-IT-445 - IT23153318.pdf`), the Topic Assessment Form, and `docs/SCOPE_REVIEW.md`.
+Made from the repository as it is today (3,887 lines of Python in `lumi/`, 17 test files with 485 passing tests, a 1,236-line web interface, 10 documents), the proposal (`J26-IT-445 - IT23153318.pdf`), the Topic Assessment Form, and `docs/SCOPE_REVIEW.md`.
 
 **These percentages are my judgement, not measurements.** Each component's score and weight is a choice made explicit below so you can disagree with it, and I would treat each result as **plus or minus about 5 points**. They are meant to be sobering, not flattering.
 
@@ -52,7 +52,7 @@ Cross-checks (both are less trustworthy than the weighted result):
 
 ### Requirements by state
 - **Completed (for the prototype's scope):** FR9 structured responses, FR11 safe logging, FR10 boundary notice (wording pending), FR8 secure endpoints (no TLS), skin intake, preprocessing and classification, the demo interface.
-- **Partly completed:** FR1 (chest uploads are accepted but not analysed), FR2 and FR3 (skin only), FR4 OCR, FR5 (questions are accepted but not answered), FR7 explainability, six of the seven non-functional requirements (see `docs/SCOPE_REVIEW.md` §7).
+- **Partly completed:** FR1 (chest uploads are accepted but not analysed), FR2 and FR3 (skin only), FR4 OCR, FR5 (a question sent with a skin photo or lab report is answered by the small rule-based layer; chest X-ray and PDF questions are not), FR7 explainability, six of the seven non-functional requirements (see `docs/SCOPE_REVIEW.md` §7).
 - **Unfinished:** FR6 (only the smallest rule-based version exists; nothing combines the image itself with a question), chest X-ray analysis, any model-based or image-based question answering, PDF reports, HTTPS and deployment, load and latency measurement, integration with other components.
 
 ## B. Overall research project: calculation
@@ -65,7 +65,7 @@ Cross-checks (both are less trustworthy than the weighted result):
 | Experiments and evaluation | 15 | 30% | 4.50 | Skin results with intervals and one baseline; OCR vs plain Tesseract on synthetic text; attention-map sanity checks. Missing: chest, question answering, four of the proposal's five baseline comparisons, an integrated-versus-fragmented comparison |
 | Scientific and clinical validation | 10 | 2% | 0.20 | No clinician review, no pediatric data, no real reports |
 | Approvals, ethics and team integration | 10 | 10% | 1.00 | Questions drafted; none answered; nothing integrated |
-| Documentation and reproducibility | 5 | 75% | 3.75 | Model card, data cards, governance record, evaluation reports, demo guide, 431 tests, reproducible commands |
+| Documentation and reproducibility | 5 | 75% | 3.75 | Model card, data cards, governance record, evaluation reports, demo guide, 485 tests, reproducible commands |
 | Final thesis | 10 | 5% | 0.50 | Evidence is accumulating in the documents; no thesis chapters written |
 | Presentation and viva | 5 | 30% | 1.50 | A working demo and a demo guide; no slides or viva preparation |
 | **Total** | **100** | | **34.95** | |

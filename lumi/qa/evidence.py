@@ -111,6 +111,39 @@ GENERIC_MESSAGE = (
 )
 
 
+def _conflicts(evidence: Evidence) -> list[str]:
+    """Places where the evidence contradicts itself. Names only, never values. Such evidence is refused, because
+    answering from it would mean choosing which of two disagreeing statements to believe."""
+    problems: list[str] = []
+    if isinstance(evidence, SkinEvidence):
+        result = evidence.result
+        codes = [item.code for item in result.probabilities]
+        if len(set(codes)) != len(codes):
+            problems.append("result.probabilities (a class appears twice)")
+        top = max(item.probability for item in result.probabilities)
+        named = [item for item in result.probabilities if item.code == result.predicted_class]
+        if not named:
+            problems.append("result.predicted_class (not among the probabilities)")
+        else:
+            if named[0].probability < top - 0.001:
+                problems.append("result.predicted_class (does not have the highest score)")
+            if named[0].name != result.predicted_class_name:
+                problems.append("result.predicted_class_name (does not match the class)")
+        if abs(sum(item.probability for item in result.probabilities) - 1.0) > 0.05:
+            problems.append("result.probabilities (do not add up to 1)")
+        if evidence.confidence is not None and abs(evidence.confidence - top) > 0.001:
+            problems.append("confidence (differs from the highest score)")
+    else:
+        for index, row in enumerate(evidence.result.fields):
+            for name in ("value", "unit", "reference_range"):
+                if (getattr(row, name) in (None, "")) != (name in row.missing_fields):
+                    problems.append(f"result.fields.{index}.{name} (disagrees with missing_fields)")
+        flagged = sum(1 for row in evidence.result.fields if row.needs_review)
+        if flagged != evidence.result.fields_needing_review:
+            problems.append("result.fields_needing_review (does not match the rows)")
+    return problems
+
+
 def parse_evidence(raw: Any) -> Evidence:
     """Validate the supplied evidence. Raises EvidenceError with a message that names fields but never shows values."""
     if not isinstance(raw, dict):
@@ -120,7 +153,7 @@ def parse_evidence(raw: Any) -> Evidence:
     if model is None:
         raise EvidenceError(GENERIC_MESSAGE + " Other kinds of analysis (for example the chest X-ray placeholder) are not supported.")
     try:
-        return model.model_validate(raw)
+        evidence = model.model_validate(raw)
     except ValidationError as exc:
         paths = []
         for problem in exc.errors():
@@ -129,3 +162,7 @@ def parse_evidence(raw: Any) -> Evidence:
                 paths.append(path)
         shown = ", ".join(paths[:5])
         raise EvidenceError(f"{GENERIC_MESSAGE} Problem fields: {shown}.") from exc
+    problems = _conflicts(evidence)
+    if problems:
+        raise EvidenceError("The evidence contradicts itself, so no answer can be drawn from it. Problem fields: " + ", ".join(problems[:5]) + ".")
+    return evidence
